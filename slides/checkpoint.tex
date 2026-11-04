@@ -1,0 +1,223 @@
+\documentclass[aspectratio=169,10pt]{beamer}
+
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{xcolor}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+\setbeamerfont{title}{size=\LARGE,series=\bfseries}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamertemplate{itemize items}[circle]
+
+\title{When does A* save work?}
+\subtitle{T01 checkpoint: question, contracts and frozen protocol}
+\author[E. Haqqverdiyev, R. Iskandarli]{Elnur Haqqverdiyev \and Rajab Iskandarli}
+\institute[UFAZ]{UFAZ, M1 Data Science and AI\\Advanced Data Structures and Algorithms, Fall 2026}
+\date{Checkpoint}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{The question is not ``is A* faster?''}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.55\textwidth}
+      \textbf{Baseline:} Dijkstra with a binary heap and lazy deletion.\\
+      \textbf{Comparison:} A* with the same heap and loop, plus a heuristic.
+      \vspace{0.4em}
+
+      A* can reduce \emph{expanded vertices}, but it pays for:
+      \begin{itemize}
+        \item one heuristic evaluation per generated vertex;
+        \item larger heap keys and more memory traffic;
+        \item extra work that is wasted if the heuristic is uninformative.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \begin{block}{Research question}
+        How do graph structure and heuristic strength change expanded
+        vertices and runtime of A* versus Dijkstra, on unit-cost grids and a
+        real road graph?
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.4em}
+  \centering
+  \textbf{Deliverable:} a rule for when the expansion saving pays for the
+  guidance cost.
+\end{frame}
+
+\begin{frame}{Predictions to test}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{p{0.05\textwidth}p{0.78\textwidth}p{0.11\textwidth}}
+    \toprule
+    & prediction & \\
+    \midrule
+    H1 & open grid: A* saves many expansions and time & \\
+    H2 & random obstacles: saves, but less than open & \\
+    H3 & clustered/rooms: weaker; rooms weaker than random & \\
+    H4 & maze: no expansion saving, A* may be slower & \\
+    H5 & long queries benefit more than short & \\
+    H6 & real ALT: strong at K=8; K=1 may not help; diminishing at K=16 & \\
+    H7 & \texttt{larger\_g} reduces median expansions on open grid & \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.8em}
+
+  These are written in \texttt{HYPOTHESES.md} before the main run; a negative
+  result is acceptable.
+\end{frame}
+
+\begin{frame}{Data choice}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{Grids as controls}
+      \begin{itemize}
+        \item open, random 20\%, clustered 30\%
+        \item rooms with doors
+        \item perfect maze
+        \item 128, 256, 512, 1024 square
+        \item 4-neighbour, unit cost
+      \end{itemize}
+      Why: isolate one structural property at a time.
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \textbf{Real graph}
+      \begin{itemize}
+        \item SNAP \texttt{roadNet-CA}, California roads
+        \item 1,957,027 vertices, 2,760,388 undirected edges after preparation
+        \item largest connected component
+        \item unit hop weight (SNAP has no lengths/travel times)
+      \end{itemize}
+      Why: sparse, planar-like, and exactly the setting where A* is usually
+      recommended.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{ADT contracts}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \begin{block}{Graph: CSR}
+        \texttt{offsets[n+1]}, \texttt{targets[m]}, \texttt{weights[m]}\\
+        memory $O(n+m)$; degree $O(1)$; neighbours $O(\deg u)$
+      \end{block}
+      \begin{block}{Binary heap}
+        push/pop $O(\log n)$; top $O(1)$\\
+        duplicates allowed; stale entries discarded lazily\\
+        tie-break: $(f,-g,id)$ or $(f,id)$
+      \end{block}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{block}{Search}
+        one loop; Dijkstra = $h\equiv0$\\
+        A* = $f=g+h(v)$; stop when target settled\\
+        consistent $h$ $\Rightarrow$ no reopening\\
+        O(1) scratch reset by generation stamp
+      \end{block}
+      \begin{block}{Heuristics}
+        grids: Manhattan, admissible + consistent\\
+        real: ALT $\max_L |d(L,v)-d(L,t)|$\\
+        landmark BFS precomputed outside timing
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Correctness before benchmarking}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}
+        \item hand-computed 5x5 wall grid (distance 8)
+        \item six-vertex weighted graph vs Floyd--Warshall
+        \item all five grid families vs independent BFS
+        \item ALT admissibility/consistency for every free vertex
+        \item path validation: contiguous edges and exact weight sum
+        \item \texttt{expanded}, \texttt{stale\_popped}, \texttt{pushed} identities
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \begin{block}{Main-run guard}
+        Every benchmark query is checked against BFS.  A distance mismatch
+        aborts the run.  Timeouts are recorded, never silently dropped.
+      \end{block}
+      \begin{block}{Counter definitions}
+        expanded = settled pop (target included)\\
+        pushed = source + decreases\\
+        stale = old entry or already closed
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Frozen protocol}
+  \small
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.55\textwidth}
+      \begin{tabular}{lcc}
+        \toprule
+        experiment & queries & timed runs\\
+        \midrule
+        grids (20 graphs) & 300 & 2,700\\
+        real graph & 30 & 900\\
+        \midrule
+        total & 330 & 3,600\\
+        \bottomrule
+      \end{tabular}
+      \vspace{0.7em}
+
+      3 grid repeats; 5 real repeats.  One untimed warm-up per treatment.
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \begin{itemize}
+        \item paired same query, alternating order
+        \item median per query; raw repeats kept
+        \item bootstrap 95\% CI + Wilcoxon
+        \item 30 s/search, 4 GiB/process
+        \item one CPU via \texttt{taskset}
+        \item seed 20261030
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{0.5em}
+  \centering
+  Protocol fixed at this checkpoint; changes require a deviation note.
+\end{frame}
+
+\begin{frame}{Prototype status and next steps}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{Working now}
+      \begin{itemize}
+        \item C++20 CSR graph, binary heap, Dijkstra/A*
+        \item five grid generators
+        \item Manhattan and ALT heuristics
+        \item BFS/Floyd--Warshall oracles
+        \item correctness test suite
+        \item raw-CSV benchmark runner
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \textbf{Next}
+      \begin{itemize}
+        \item pilot run to confirm the time budget
+        \item main grid and real runs
+        \item paired analysis, CIs and figures
+        \item defence: answer the question, including negative results
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{0.7em}
+  \centering
+  \large The implementation is the same loop for both treatments; only the
+  heuristic changes.
+\end{frame}
+
+\end{document}
