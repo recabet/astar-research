@@ -1,0 +1,32 @@
+# Build artifacts
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+*.o
+*.a
+*.so
+
+# Downloaded / generated graph data (regenerate with ./download_data.sh)
+data/
+
+# IDE and editor state
+.idea/
+.vscode/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.venv/
+
+# LaTeX intermediates (PDFs and sources are tracked)
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+
+# OS clutter
+.DS_Store
