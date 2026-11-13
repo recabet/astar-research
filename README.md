@@ -297,7 +297,7 @@ HYPOTHESES.md                    predictions written before the main run
 PROTOCOL.md                      frozen protocol
 RESULTS.md                       answer to the research question
 report/report.tex                IEEE two-column report source
-report/report.pdf                IEEE two-column report (8 pages)
+report/report.pdf                IEEE two-column report (10 pages)
 slides/checkpoint.tex            checkpoint deck source
 slides/checkpoint.pdf            rendered checkpoint deck
 slides/defence.tex               defence deck source

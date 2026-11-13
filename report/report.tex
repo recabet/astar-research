@@ -441,6 +441,34 @@ tie-break can change the order: the open grid is one saturated plateau
 road graph is intermediate (\(0.35\)).  On the road graph, longer plateaus
 predict a larger \code{node\_id} penalty (expansion \(\rho=0.53\), \(p=0.003\)).
 
+\begin{table}[!t]
+\centering
+\caption{Road graph: queries grouped by the longest equal-\(f\) plateau
+(low/mid/high tertiles).  Ratios are node\_id / larger\_g.}
+\label{tab:plateau}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+tertile & plateau share & exp ratio & time ratio & worst time\\
+\midrule
+low  & 0.128 & 1.055 & 1.017 & 1.278\\
+mid  & 0.349 & 1.155 & 1.070 & 2.402\\
+high & 0.715 & 1.337 & 1.247 & 2.181\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{../figures/tie_plateau.png}
+  \caption{Equal-\(f\) plateaus explain tie-break sensitivity.  Left: road
+  queries; longer plateaus predict a larger \code{node\_id} cost.  Right:
+  median longest plateau by workload.  Open/random/clustered grids are
+  saturated; the maze has almost no plateau.}
+  \label{fig:plateau}
+\end{figure*}
+
 
 \subsection{Heuristic informativeness}
 \label{sec:informativeness}
@@ -568,17 +596,143 @@ road        & reopen & 1.10 & 5.4x  & 1.011 & 1.04 & 1.04\\
 
 
 
-\subsection{Weighted road network checks}
+\subsection{Weighted road network}
+\label{sec:weighted-road}
+
 The frozen road graph is unit-hop.  As a separate data regime we use the DIMACS
-\code{USA-road-d.NY} graph \cite{dimacs} with integer distance weights and
-coordinates (264,346 nodes, 730,100 undirected weighted arcs).  Weighted
-Dijkstra supplies the oracle, ALT tables and query bands; all 30 queries return
-the weighted optimum.  Euclidean \Astar{} gives only 1.6x, while ALT K=8 gives
-18.4x and K=16 21.6x.  Weighted \Astar{} with a closed list reaches 35.1x at
-1.1\% median cost and 53.9x at 4.1\%; reopening is slower.  A same-topology
-unit-weight control falls from 18.4x to 10.4x for ALT K=8 and raises the
-\code{node\_id} time penalty from 1.08x to 1.17x, so distance weights both
-amplify ALT and reduce tie sensitivity.
+\code{USA-road-d.NY} graph \cite{dimacs}: 264,346 nodes, 730,100 undirected
+weighted arcs after symmetrisation, integer distance weights, and coordinates.
+Weighted Dijkstra supplies the oracle, the ALT tables are built with weighted
+Dijkstra, and queries are selected in weighted-distance bands.  All 30 queries
+return the weighted optimum for every treatment.
+
+\begin{table}[!t]
+\centering
+\caption{Weighted New York road graph: median time and expansion ratios
+(Dijkstra / A*).  All 30 queries return the weighted optimum.}
+\label{tab:weighted-road}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcc}
+\toprule
+treatment & time ratio & expansion ratio\\
+\midrule
+Euclidean A* & 1.6x & 1.9x\\
+ALT K=1 & 1.6x & 2.3x\\
+ALT K=4 & 10.0x & 14.6x\\
+ALT K=8 & \textbf{18.4x} & \textbf{25.8x}\\
+ALT K=16 & \textbf{21.6x} & \textbf{31.1x}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Euclidean A* is admissible but weak: the straight-line bound is much looser
+than landmark distances, so it gives only 1.6x.  ALT K=16 is the fastest
+treatment; K=8 is close.  This ranking is the same as in the unit-hop
+California graph, but the absolute speedups are not directly comparable because
+the graph and query set differ.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{../figures/weighted_road.png}
+  \caption{Weighted New York road graph.  Left: median time ratio for
+  Euclidean A* and ALT.  Right: speedup by weighted-distance band.  ALT's
+  advantage grows with landmarks; the free Euclidean bound is weak on long
+  queries.}
+  \label{fig:weighted-road}
+\end{figure*}
+
+\subsubsection{Weighted A* on the weighted graph}
+The same weighted graph also supports the price-of-optimality experiment.  We
+sweep \(f=g+\epsilon h\) with ALT K=8, both closed-list and reopening policies,
+and use the weighted distance as the path cost.  Table~\ref{tab:weighted-road-eps}
+reports the full sweep.  The first percent is cheap: the closed-list
+\(\epsilon=1.1\) variant reaches 35.1x for a 1.1\% median cost increase, and
+\(\epsilon=1.25\) reaches 53.9x for 4.1\%.  Reopening is slower at every
+\(\epsilon>1\), and the speedup saturates above \(\epsilon\approx3\) while the
+cost continues to rise.
+
+\begin{table*}[!t]
+\centering
+\caption{Weighted A* on the weighted New York graph (ALT K=8).  Time ratio is
+Dijkstra / weighted A*; cost is returned weighted distance / optimum.}
+\label{tab:weighted-road-eps}
+\footnotesize
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{closed list} & \multicolumn{2}{c}{reopen}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\(\epsilon\) & time ratio & cost ratio & time ratio & cost ratio\\
+\midrule
+1.00 & 16.0x & 1.000 & 16.1x & 1.000\\
+1.10 & 35.1x & 1.011 & 27.0x & 1.013\\
+1.25 & 53.9x & 1.041 & 35.1x & 1.039\\
+1.50 & 77.1x & 1.060 & 51.0x & 1.061\\
+2.00 & 99.8x & 1.092 & 80.8x & 1.089\\
+3.00 & 102.2x & 1.146 & 87.0x & 1.137\\
+5.00 & 115.9x & 1.167 & 91.5x & 1.156\\
+10.0 & 121.7x & 1.213 & 103.0x & 1.207\\
+20.0 & 121.4x & 1.255 & 103.7x & 1.237\\
+50.0 & 123.9x & 1.247 & 110.5x & 1.234\\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.86\textwidth]{../figures/weighted_road_eps.png}
+  \caption{Weighted A* on the weighted road graph.  Left: cost-speed frontier;
+  labels are \(\epsilon\).  Right: speed versus \(\epsilon\) for closed-list
+  and reopening policies.  The closed list is faster for essentially the same
+  path cost.}
+  \label{fig:weighted-road-eps}
+\end{figure*}
+
+\subsubsection{Same-topology unit-weight control}
+To isolate the effect of weights, we rerun the \emph{identical} 30
+source-target pairs on the same topology with every edge weight set to 1.  The
+unit run recomputes BFS ALT landmarks and uses a BFS hop-distance oracle.  The
+weighted and unit runs therefore differ only in the edge weights and the
+corresponding oracle/heuristic tables.
+
+\begin{table}[!t]
+\centering
+\caption{Same topology and query pairs: distance weights versus unit weights.
+Time ratio is Dijkstra / A*.}
+\label{tab:unit-road}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{time ratio} & \multicolumn{2}{c}{expansion ratio}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+treatment & weighted & unit & weighted & unit\\
+\midrule
+ALT K=1 & 1.59 & 1.41 & 2.25 & 2.16\\
+ALT K=4 & 10.02 & 7.84 & 14.57 & 13.15\\
+ALT K=8 & \textbf{18.37} & \textbf{10.36} & \textbf{25.76} & \textbf{17.70}\\
+ALT K=16 & \textbf{21.62} & \textbf{13.56} & \textbf{31.09} & \textbf{23.90}\\
+ALT K=8, node\_id & 15.22 & 9.63 & 18.73 & 14.74\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Distance weights make ALT substantially more valuable: ALT K=8 improves from
+10.4x on unit weights to 18.4x on distance weights, a 1.77x increase in the
+speedup.  They also reduce tie sensitivity: the median \code{node\_id} /
+\code{larger\_g} time penalty falls from 1.17x to 1.08x, and the expansion
+penalty from 1.19x to 1.08x.  The ranking is unchanged; weights change the size
+of the advantage, not which algorithm wins.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{../figures/unit_road.png}
+  \caption{Same topology, same source-target pairs: distance weights versus
+  unit weights.  Left: per-query ALT K=8 speedups; points above the diagonal
+  improve under weights.  Right: absolute speedups by treatment.}
+  \label{fig:unit-road}
+\end{figure*}
 
 \subsection{Batch throughput with OpenMP}
 \label{sec:omp}
