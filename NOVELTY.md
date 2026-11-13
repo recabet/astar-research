@@ -112,13 +112,17 @@ All 30 queries return the weighted Dijkstra optimum.  The median time ratios are
 
 Euclidean A* is free but weak: the straight-line bound is much looser than
 landmark distances.  ALT K=16 is the fastest treatment, and K=8 still gives a
-large gain.  Weighted edges also shrink the tie-break penalty: `node_id` expands
-1.08x as many vertices as `larger_g`, versus 1.14x on the unit-hop California
-graph, consistent with fewer equal-f plateaus.
+large gain.  Weighted A* with a closed list goes further: `epsilon=1.1` reaches
+**35.1x** for **1.1%** median cost and `epsilon=1.25` reaches **53.9x** for
+**4.1%**; reopening is slower at every `epsilon>1`.
 
-This is a separate graph and query set; the absolute numbers are not directly
-comparable with the frozen California results.  Details are in
-`results/weighted_road.md`.
+The same-topology control is the cleanest causal check.  Using identical
+source-target pairs but unit weights, ALT K=8 falls from **18.4x** to **10.4x**,
+so distance weights make ALT substantially more valuable.  The `node_id`
+tie-break penalty also falls, from 1.17x (unit) to 1.08x (weighted), consistent
+with fewer equal-f plateaus when edges have non-uniform lengths.  Details are in
+`results/weighted_road.md`, `results/weighted_road_eps.md`, and
+`results/unit_road.md`.
 
 ## 5. Batch throughput with OpenMP
 
@@ -163,6 +167,10 @@ that a single A* query becomes faster.
 - `results/tie_plateau.md` — plateau mechanism report
 - `results/weighted_road.csv` — weighted DIMACS New York benchmark
 - `results/weighted_road.md` — weighted-road report
+- `results/weighted_road_eps.csv` — weighted A* epsilon sweep on weighted NY
+- `results/weighted_road_eps.md` — weighted-road epsilon report
+- `results/unit_road.csv` — same-topology unit-weight control
+- `results/unit_road.md` — weighted-versus-unit report
 - `results/omp_scaling.csv` — OpenMP batch times
 - `results/omp_tasks.csv` — OpenMP per-query latencies
 - `results/novelty.md`, `results/omp.md` — generated tables
@@ -173,5 +181,7 @@ that a single A* query becomes faster.
 - `figures/real_tie_break.png`
 - `figures/tie_plateau.png`
 - `figures/weighted_road.png`
+- `figures/weighted_road_eps.png`
+- `figures/unit_road.png`
 - `figures/omp_scaling.png`
 - `figures/omp_astar_advantage.png`

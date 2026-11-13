@@ -254,8 +254,13 @@ results/tie_plateau_real.csv      equal-f plateau runs on the road graph
 results/tie_plateau.md            plateau mechanism report
 results/weighted_road.csv         weighted DIMACS New York benchmark
 results/weighted_road.md          weighted-road report
+results/weighted_road_eps.csv     weighted A* epsilon sweep on weighted NY
+results/weighted_road_eps.md      weighted-road epsilon report
+results/unit_road.csv             same-topology unit-weight control
+results/unit_road.md              weighted-versus-unit control report
 results/summary_weighted_road*.csv  weighted-road summaries
-results/paired_weighted_road.csv  weighted-road per-query pairs
+results/paired_weighted_road*.csv  weighted-road per-query pairs
+results/summary_unit_road.csv     weighted/unit comparison
 results/omp_scaling.csv           OpenMP batch wall-clock times
 results/omp_tasks.csv             OpenMP per-query latencies
 results/novelty.md                generated novelty tables
@@ -269,6 +274,8 @@ figures/weighted_pareto.png       weighted-A* cost/speed frontier
 figures/real_tie_break.png        real-graph tie-break figure
 figures/tie_plateau.png           equal-f plateau mechanism figure
 figures/weighted_road.png         weighted-road algorithm comparison
+figures/weighted_road_eps.png    weighted-road epsilon frontier
+figures/unit_road.png            weighted-versus-unit control
 figures/omp_*.png                 OpenMP figures
 figures/perf_mode.png             performance-mode summary figure
 NOVELTY.md                        summary of the exploratory extensions
@@ -280,6 +287,8 @@ scripts/analyze_tie_plateau.py        equal-f plateau mechanism analysis
 scripts/download_dimacs_ny.sh    downloads/prepares the weighted New York graph
 scripts/run_weighted_road.sh     weighted DIMACS road experiment
 scripts/analyze_weighted_road.py weighted-road analysis
+scripts/analyze_weighted_road_eps.py  weighted-road epsilon analysis
+scripts/analyze_unit_road.py     weighted-versus-unit control analysis
 scripts/run_omp.sh               OpenMP batch-scaling extension
 scripts/check_performance_mode.sh  matched subset run in another power mode
 scripts/analyze_perf_mode.py     compares that subset with the frozen main data
@@ -340,7 +349,11 @@ Five post-freeze analyses are included and clearly labelled exploratory:
    integer road-distance weights, weighted ALT K=8 gives 18.4x median time and
    25.8x fewer expansions; K=16 gives 21.6x and 31.1x.  A free Euclidean
    heuristic gives only 1.6x and 1.9x, so ALT still earns its preprocessing
-   cost.  All 30 queries return the weighted Dijkstra optimum.
+   cost.  Weighted A* with a closed list reaches 35.1x at 1.1% median cost and
+   53.9x at 4.1%; reopening is slower.  A same-topology unit-weight control
+   raises ALT K=8 from 10.4x to 18.4x when distance weights are used, and cuts
+   the `node_id` time penalty from 1.17x to 1.08x.  All 30 queries return the
+   exact oracle distance in every run.
 5. **Batch throughput with OpenMP.** Independent queries scale to 9.73x at 16
    threads (61% efficiency); per-query latency inflates by 18--21%, and the A*
    advantage remains.  This is a throughput result, not single-query speedup.

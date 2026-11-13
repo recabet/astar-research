@@ -256,6 +256,42 @@ c39ec9b87c66d6e254f80cd3cfe20c7eb3c5ce4aca4063dc2efc228ab12fa95f  data/USA-road-
 39e93de23f68f52612c07d98ec767ea12be0224275beb43fb255be1b7a05ab9c  results/weighted_road.csv
 ```
 
+### Weighted A* and same-topology control
+
+```text
+./build/astar_research weighted-road-eps \
+  --graph data/roadNet-NY.dimacs.bin \
+  --landmarks data/roadNet-NY.alt16.bin \
+  --coords data/roadNet-NY.coords.bin \
+  --out results/weighted_road_eps.csv \
+  --main-k 8 --per-band 10 --reps 5 --seed 20261030
+
+./build/astar_research benchmark-unit-road \
+  --graph data/roadNet-NY.dimacs.bin \
+  --queries results/weighted_road.csv \
+  --out results/unit_road.csv \
+  --main-k 8 --reps 5 --seed 20261030
+```
+
+- Weighted epsilon sweep: 30 queries x 5 repeats x (1 Dijkstra + 2 policies x
+  10 epsilons) = 3,150 rows; wall clock 3.1 s, peak RSS 56 MB.
+- Unit control: 30 identical query pairs x 5 repeats x 6 treatments = 900 rows;
+  wall clock 7.8 s, peak RSS 81 MB.
+- Both runs: all `status=ok`; every distance matches its oracle; `epsilon=1` is
+  optimal under both policies.
+- Closed-list weighted A*: `epsilon=1.1` 35.1x at 1.1% median cost;
+  `epsilon=1.25` 53.9x at 4.1%; reopening is slower at every `epsilon>1`.
+- Same-topology control: ALT K=8 10.4x on unit weights vs 18.4x on distance
+  weights; `node_id` / `larger_g` time penalty 1.17x vs 1.08x.
+- Outputs: `results/weighted_road_eps.md`, `results/unit_road.md`, summary and
+  paired CSVs, `figures/weighted_road_eps.png`, `figures/unit_road.png`.
+- Checksums:
+
+```text
+fa98304f5e269afea561a52ee7c0ec03f3924aa58dc83e5ba4e704b0330a54d5  results/weighted_road_eps.csv
+3084bb987958cd31d34cf7dcc08f79bd3dbc0ec2653e90b75b845d5587321f00  results/unit_road.csv
+```
+
 ## OpenMP batch-throughput run
 
 Separate from the frozen protocol and the query-level study.  The process was

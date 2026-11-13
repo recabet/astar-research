@@ -276,11 +276,15 @@ bands all use weighted Dijkstra.  All 30 queries return the weighted optimum.
 | ALT K=8 | **18.4x** | **25.8x** |
 | ALT K=16 | **21.6x** | **31.1x** |
 
-A free Euclidean heuristic is admissible but much weaker than ALT.  Weighted
-edges also reduce the tie-break penalty: `node_id` expands 1.08x as many
-vertices as `larger_g`, versus 1.14x on the unit-hop graph.  This is a different
-graph and query set; absolute speedups are not directly comparable with the
-frozen California results.  Details: `results/weighted_road.md`.
+A free Euclidean heuristic is admissible but much weaker than ALT.  Weighted A*
+with a closed list goes further: `epsilon=1.1` reaches **35.1x** for **1.1%**
+median cost, and `epsilon=1.25` reaches **53.9x** for **4.1%**; reopening is
+slower at every `epsilon>1`.  A same-topology unit-weight control isolates the
+effect of weights: ALT K=8 falls from 18.4x to **10.4x** when weights are
+removed, and the `node_id` time penalty rises from **1.08x** to **1.17x**.  This
+is a different graph and query set from frozen California, so absolute speedups
+are not directly comparable.  Details: `results/weighted_road.md`,
+`results/weighted_road_eps.md`, `results/unit_road.md`.
 
 ### Batch throughput with OpenMP
 Independent queries are parallelised across 1, 2, 4, 8 and 16 threads.  Each

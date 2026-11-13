@@ -571,13 +571,14 @@ road        & reopen & 1.10 & 5.4x  & 1.011 & 1.04 & 1.04\\
 \subsection{Weighted road network checks}
 The frozen road graph is unit-hop.  As a separate data regime we use the DIMACS
 \code{USA-road-d.NY} graph \cite{dimacs} with integer distance weights and
-coordinates
-(264,346 nodes, 730,100 undirected weighted arcs).  The oracle, ALT tables and
-query bands use weighted Dijkstra.  All 30 queries return the weighted optimum.
-Median time ratios are 1.6x for Euclidean \Astar{}, 18.4x for ALT K=8 and 21.6x
-for K=16.  The free Euclidean bound is admissible but much weaker than ALT, and
-the weighted graph reduces the \code{node\_id} expansion penalty from 1.14x to
-1.08x, consistent with fewer equal-\(f\) plateaus.
+coordinates (264,346 nodes, 730,100 undirected weighted arcs).  Weighted
+Dijkstra supplies the oracle, ALT tables and query bands; all 30 queries return
+the weighted optimum.  Euclidean \Astar{} gives only 1.6x, while ALT K=8 gives
+18.4x and K=16 21.6x.  Weighted \Astar{} with a closed list reaches 35.1x at
+1.1\% median cost and 53.9x at 4.1\%; reopening is slower.  A same-topology
+unit-weight control falls from 18.4x to 10.4x for ALT K=8 and raises the
+\code{node\_id} time penalty from 1.08x to 1.17x, so distance weights both
+amplify ALT and reduce tie sensitivity.
 
 \subsection{Batch throughput with OpenMP}
 \label{sec:omp}

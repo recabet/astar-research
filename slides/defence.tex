@@ -476,6 +476,18 @@
   also reduce the \texttt{node\_id} expansion penalty to 1.08x.
 \end{frame}
 
+\begin{frame}{Same topology: what did the weights change?}
+  \centering
+  \includegraphics[width=\textwidth]{../figures/unit_road.png}
+  \vspace{0.2em}
+
+  \footnotesize
+  Identical 30 source-target pairs, only the edge weights differ.  ALT K=8
+  rises from 10.4x (unit) to 18.4x (distance weights), while the
+  \texttt{node\_id} time penalty falls from 1.17x to 1.08x.  Weighted A* with a
+  closed list reaches 35.1x at 1.1\% median cost.
+\end{frame}
+
 \begin{frame}{Does A* still win with 16 threads?}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.43\textwidth}
