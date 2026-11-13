@@ -464,6 +464,18 @@
 \end{frame}
 
 
+\begin{frame}{Weighted road: distance, not hops}
+  \centering
+  \includegraphics[width=\textwidth]{../figures/weighted_road.png}
+  \vspace{0.2em}
+
+  \footnotesize
+  DIMACS New York, 264k nodes, distance weights and coordinates.  Weighted
+  Dijkstra oracle; all 30 queries optimal.  ALT K=8 gives 18.4x median time and
+  K=16 21.6x; the free Euclidean heuristic gives only 1.6x.  Weighted edges
+  also reduce the \texttt{node\_id} expansion penalty to 1.08x.
+\end{frame}
+
 \begin{frame}{Does A* still win with 16 threads?}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.43\textwidth}

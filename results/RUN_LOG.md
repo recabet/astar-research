@@ -214,6 +214,48 @@ and `real.csv` schemas and values are untouched.
 495bb06b0664bee408a79738f532ec2fbe1cb74231669c9b6b781ab40fa37a97  results/tie_plateau_real.csv
 ```
 
+## Weighted road network run (2026-11-13)
+
+Separate data regime: DIMACS `USA-road-d.NY` with coordinates and distance
+weights.  The frozen SNAP California data and results are untouched.
+
+```text
+./scripts/download_dimacs_ny.sh
+
+./build/astar_research benchmark-weighted-road \
+  --graph data/roadNet-NY.dimacs.bin \
+  --landmarks data/roadNet-NY.alt16.bin \
+  --coords data/roadNet-NY.coords.bin \
+  --out results/weighted_road.csv \
+  --main-k 8 --per-band 10 --reps 5 --seed 20261030
+
+python3 scripts/analyze_weighted_road.py
+```
+
+- Source: DIMACS `USA-road-d.NY` `.gr`/`.co`, downloaded from the public EDP
+  mirror; `.gr` weights are integer distance units and `.co` holds coordinates.
+- Preprocessing: 264,346 nodes, 733,846 input arcs, 730,100 undirected weighted
+  arcs after symmetrisation/deduplication; wall clock 3.2 s, peak RSS 86 MB.
+- Benchmark: 30 weighted-band queries x 5 repeats x 7 treatments = 1,050 rows;
+  wall clock 8.1 s, peak RSS 86 MB; all `status=ok`, `correct=1`.
+- Every treatment returned the weighted Dijkstra optimum.
+- Median time ratios: Euclidean 1.6x, ALT K=1 1.6x, K=4 10.0x, K=8 18.4x,
+  K=16 21.6x.  `node_id` / `larger_g` expansion ratio 1.08x.
+- Outputs: `results/weighted_road.md`, `summary_weighted_road*.csv`,
+  `paired_weighted_road.csv`, `figures/weighted_road.png`.
+- Input checksums:
+
+```text
+37f5b3eff82330850466956b6c036a8ab8551512bdc7509edca1d4c6cf943fa3  data/USA-road-d.NY.gr
+c39ec9b87c66d6e254f80cd3cfe20c7eb3c5ce4aca4063dc2efc228ab12fa95f  data/USA-road-d.NY.co
+```
+
+- Output checksum:
+
+```text
+39e93de23f68f52612c07d98ec767ea12be0224275beb43fb255be1b7a05ab9c  results/weighted_road.csv
+```
+
 ## OpenMP batch-throughput run
 
 Separate from the frozen protocol and the query-level study.  The process was

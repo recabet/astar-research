@@ -92,7 +92,35 @@ p = 0.003; time rho = 0.41, p = 0.025).  The low-plateau third is neutral
 The mechanism is reported in `results/tie_plateau.md`.
 
 
-## 4. Batch throughput with OpenMP
+## 4. Weighted road graph: distance weights
+
+The frozen road result is hop-count only.  To test whether the mechanism
+survives weighted edges, we use the DIMACS `USA-road-d.NY` graph: 264,346
+nodes, 730,100 undirected weighted arcs after symmetrisation, coordinates, and
+integer distance weights.  Weighted Dijkstra supplies the oracle and the ALT
+landmark tables; queries are selected in weighted-distance bands.
+
+All 30 queries return the weighted Dijkstra optimum.  The median time ratios are:
+
+| treatment | time ratio | expansion ratio |
+|---|---:|---:|
+| Euclidean A* | **1.6x** | **1.9x** |
+| ALT K=1 | 1.6x | 2.3x |
+| ALT K=4 | 10.1x | 14.6x |
+| ALT K=8 | **18.4x** | **25.8x** |
+| ALT K=16 | **21.6x** | **31.1x** |
+
+Euclidean A* is free but weak: the straight-line bound is much looser than
+landmark distances.  ALT K=16 is the fastest treatment, and K=8 still gives a
+large gain.  Weighted edges also shrink the tie-break penalty: `node_id` expands
+1.08x as many vertices as `larger_g`, versus 1.14x on the unit-hop California
+graph, consistent with fewer equal-f plateaus.
+
+This is a separate graph and query set; the absolute numbers are not directly
+comparable with the frozen California results.  Details are in
+`results/weighted_road.md`.
+
+## 5. Batch throughput with OpenMP
 
 The search itself is sequential, but independent queries are not.  We run the
 five 1024x1024 grid families (15 queries each, 3 repeats) and the 30 road
@@ -133,6 +161,8 @@ that a single A* query becomes faster.
 - `results/real_tie_break.md` — real-graph `node_id` vs `larger_g` analysis
 - `results/tie_plateau_grid.csv`, `results/tie_plateau_real.csv` — equal-f plateau runs
 - `results/tie_plateau.md` — plateau mechanism report
+- `results/weighted_road.csv` — weighted DIMACS New York benchmark
+- `results/weighted_road.md` — weighted-road report
 - `results/omp_scaling.csv` — OpenMP batch times
 - `results/omp_tasks.csv` — OpenMP per-query latencies
 - `results/novelty.md`, `results/omp.md` — generated tables
@@ -142,5 +172,6 @@ that a single A* query becomes faster.
 - `figures/weighted_pareto.png`
 - `figures/real_tie_break.png`
 - `figures/tie_plateau.png`
+- `figures/weighted_road.png`
 - `figures/omp_scaling.png`
 - `figures/omp_astar_advantage.png`

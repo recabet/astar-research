@@ -568,6 +568,17 @@ road        & reopen & 1.10 & 5.4x  & 1.011 & 1.04 & 1.04\\
 
 
 
+\subsection{Weighted road network checks}
+The frozen road graph is unit-hop.  As a separate data regime we use the DIMACS
+\code{USA-road-d.NY} graph \cite{dimacs} with integer distance weights and
+coordinates
+(264,346 nodes, 730,100 undirected weighted arcs).  The oracle, ALT tables and
+query bands use weighted Dijkstra.  All 30 queries return the weighted optimum.
+Median time ratios are 1.6x for Euclidean \Astar{}, 18.4x for ALT K=8 and 21.6x
+for K=16.  The free Euclidean bound is admissible but much weaker than ALT, and
+the weighted graph reduces the \code{node\_id} expansion penalty from 1.14x to
+1.08x, consistent with fewer equal-\(f\) plateaus.
+
 \subsection{Batch throughput with OpenMP}
 \label{sec:omp}
 
@@ -748,6 +759,11 @@ S. Russell and P. Norvig, \emph{Artificial Intelligence: A Modern Approach},
 J. Leskovec and A. Krevl, ``SNAP Datasets: Stanford large network dataset
 collection,'' 2014. [Online]. Available:
 \url{https://snap.stanford.edu/data/roadNet-CA.html}
+
+\bibitem{dimacs}
+C. Demetrescu, A. V. Goldberg, and D. S. Johnson, Eds., \emph{The Shortest Path
+Problem: Ninth DIMACS Implementation Challenge}. DIMACS Series in Discrete
+Mathematics and Theoretical Computer Science, 2009.
 
 \bibitem{cormen2022}
 T. H. Cormen, C. E. Leiserson, R. L. Rivest, and C. Stein, \emph{Introduction

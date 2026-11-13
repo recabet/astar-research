@@ -262,6 +262,26 @@ queries, and reaches **2.39x** on the worst query (p=4.4e-6); the time
 difference points the same way but is noisy.  The real data therefore confirm
 the grid conclusion.
 
+### Weighted road graph: distance weights
+The frozen California graph is unit-hop, so we add a separate DIMACS
+`USA-road-d.NY` experiment: 264,346 nodes, 730,100 undirected weighted arcs,
+coordinates, and integer distance weights.  The oracle, ALT landmarks, and query
+bands all use weighted Dijkstra.  All 30 queries return the weighted optimum.
+
+| treatment | time ratio | expansion ratio |
+|---|---:|---:|
+| Euclidean A* | 1.6x | 1.9x |
+| ALT K=1 | 1.6x | 2.3x |
+| ALT K=4 | 10.1x | 14.6x |
+| ALT K=8 | **18.4x** | **25.8x** |
+| ALT K=16 | **21.6x** | **31.1x** |
+
+A free Euclidean heuristic is admissible but much weaker than ALT.  Weighted
+edges also reduce the tie-break penalty: `node_id` expands 1.08x as many
+vertices as `larger_g`, versus 1.14x on the unit-hop graph.  This is a different
+graph and query set; absolute speedups are not directly comparable with the
+frozen California results.  Details: `results/weighted_road.md`.
+
 ### Batch throughput with OpenMP
 Independent queries are parallelised across 1, 2, 4, 8 and 16 threads.  Each
 task still runs Dijkstra and A* on the same query with thread-local scratch and

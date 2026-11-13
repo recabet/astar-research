@@ -51,6 +51,13 @@ frozen protocol:
 ./scripts/run_novelty.sh
 ```
 
+The weighted-distance DIMACS road experiment is separate from the frozen
+protocol and downloads its own 21 MB New York graph:
+
+```bash
+./scripts/run_weighted_road.sh
+```
+
 The OpenMP batch-throughput study is also separate from the frozen protocol:
 
 ```bash
@@ -100,6 +107,14 @@ The experimental graph has:
 SNAP does not provide road length or travel time, so we do **not** invent a
 weighted interpretation.  The real-graph result is a hop-count result, just as
 the grid result is a unit-cost result.
+
+For the weighted-distance extension we use the DIMACS `USA-road-d.NY` graph,
+which provides both integer distance weights and coordinates.  After
+symmetrisation and deduplication it has **264,346 vertices** and **730,100**
+undirected weighted arcs.  `scripts/download_dimacs_ny.sh` downloads the
+`.gr`/`.co` pair, builds weighted ALT landmarks with weighted Dijkstra, and
+projects the coordinates for a conservative Euclidean lower bound.  This is a
+separate data regime, not a replacement for the frozen California results.
 
 The generated data files are intentionally **not** shipped in the archive, so
 the project can be zipped without the 278 MB data directory.  `download_data.sh`
@@ -177,21 +192,25 @@ relaxation, counter updates and stopping rule are identical.
   `h(v,t)=max_L |d(L,v)-d(L,t)|`.
   For each landmark, the triangle inequality gives admissibility, and the same
   inequality on an edge gives consistency.
+- **Euclidean** on the weighted road graph: a conservative projected
+  straight-line lower bound, with no preprocessing beyond the coordinates.
 - Sixteen landmarks are selected by deterministic farthest-point sampling;
-  each landmark distance table is a BFS over the unweighted graph.  The main
-  real treatment uses the first 8; the analysis also reports 1, 4 and 16.
+  each landmark table is a BFS for unit graphs and a weighted Dijkstra for
+  weighted graphs.  The main real treatment uses the first 8; the analysis also
+  reports 1, 4 and 16.
 
 ### Oracles (`include/oracle.hpp`, `src/oracle.cpp`)
 
 - BFS distances for unweighted graphs, independent of the heap searches;
+- weighted Dijkstra distances for weighted graphs;
 - Floyd–Warshall for hand-sized weighted graphs;
 - edge-by-edge path validation;
 - largest-connected-component extraction by union-find.
 
 ### Experiments (`include/experiments.hpp`, `src/experiments.cpp`)
 
-- query selection from BFS distance bands (short/medium/long), independent of
-  Dijkstra/A*;
+- query selection from BFS distance bands for unit graphs, and from weighted
+  distance bands for the weighted road graph, independent of Dijkstra/A*;
 - paired benchmark runner and raw CSV writer;
 - 30-query real validation sample;
 - documented counters: expansions, pushes, pops, stale pops, relaxed arcs,
@@ -233,6 +252,10 @@ results/real_tie_break.md         real-graph tie-break analysis
 results/tie_plateau_grid.csv      equal-f plateau runs on grids
 results/tie_plateau_real.csv      equal-f plateau runs on the road graph
 results/tie_plateau.md            plateau mechanism report
+results/weighted_road.csv         weighted DIMACS New York benchmark
+results/weighted_road.md          weighted-road report
+results/summary_weighted_road*.csv  weighted-road summaries
+results/paired_weighted_road.csv  weighted-road per-query pairs
 results/omp_scaling.csv           OpenMP batch wall-clock times
 results/omp_tasks.csv             OpenMP per-query latencies
 results/novelty.md                generated novelty tables
@@ -245,6 +268,7 @@ figures/novelty_*.png             novelty figures
 figures/weighted_pareto.png       weighted-A* cost/speed frontier
 figures/real_tie_break.png        real-graph tie-break figure
 figures/tie_plateau.png           equal-f plateau mechanism figure
+figures/weighted_road.png         weighted-road algorithm comparison
 figures/omp_*.png                 OpenMP figures
 figures/perf_mode.png             performance-mode summary figure
 NOVELTY.md                        summary of the exploratory extensions
@@ -253,6 +277,9 @@ scripts/run_novelty.sh           heuristic + weighted-A* extensions
 scripts/analyze_weighted_families.py  weighted-A* all-family/road analysis
 scripts/analyze_real_tie_break.py     real-graph tie-break analysis
 scripts/analyze_tie_plateau.py        equal-f plateau mechanism analysis
+scripts/download_dimacs_ny.sh    downloads/prepares the weighted New York graph
+scripts/run_weighted_road.sh     weighted DIMACS road experiment
+scripts/analyze_weighted_road.py weighted-road analysis
 scripts/run_omp.sh               OpenMP batch-scaling extension
 scripts/check_performance_mode.sh  matched subset run in another power mode
 scripts/analyze_perf_mode.py     compares that subset with the frozen main data
@@ -261,7 +288,7 @@ HYPOTHESES.md                    predictions written before the main run
 PROTOCOL.md                      frozen protocol
 RESULTS.md                       answer to the research question
 report/report.tex                IEEE two-column report source
-report/report.pdf                IEEE two-column report (7 pages)
+report/report.pdf                IEEE two-column report (8 pages)
 slides/checkpoint.tex            checkpoint deck source
 slides/checkpoint.pdf            rendered checkpoint deck
 slides/defence.tex               defence deck source
@@ -287,7 +314,7 @@ slides/defence.pdf               rendered defence deck
 
 ## Exploratory extensions
 
-Four post-freeze analyses are included and clearly labelled exploratory:
+Five post-freeze analyses are included and clearly labelled exploratory:
 
 1. **Heuristic informativeness.** Reverse BFS measures the true remaining
    distance on sampled vertices; the normalised heuristic error has Spearman
@@ -309,19 +336,25 @@ Four post-freeze analyses are included and clearly labelled exploratory:
    none, and on the road graph longer plateaus predict the penalty
    (expansion rho=0.53, p=0.003).  This explains why tie-breaking is a
    tail-risk effect.
-4. **Batch throughput with OpenMP.** Independent queries scale to 9.73x at 16
+4. **Weighted distance road.**  On DIMACS `USA-road-d.NY` with coordinates and
+   integer road-distance weights, weighted ALT K=8 gives 18.4x median time and
+   25.8x fewer expansions; K=16 gives 21.6x and 31.1x.  A free Euclidean
+   heuristic gives only 1.6x and 1.9x, so ALT still earns its preprocessing
+   cost.  All 30 queries return the weighted Dijkstra optimum.
+5. **Batch throughput with OpenMP.** Independent queries scale to 9.73x at 16
    threads (61% efficiency); per-query latency inflates by 18--21%, and the A*
    advantage remains.  This is a throughput result, not single-query speedup.
 
 See `NOVELTY.md`, `results/novelty.md`, `results/weighted_families.md`,
-`results/real_tie_break.md`, `results/tie_plateau.md`, `results/omp.md`, and the
-report/talk sections.
+`results/real_tie_break.md`, `results/tie_plateau.md`,
+`results/weighted_road.md`, `results/omp.md`, and the report/talk sections.
 
 ## Limitations
 
-- Only one real graph is used.  It is a sparse road network with unit hop costs;
-  the result should not be generalized to weighted road travel times without
-  repeating the experiment.
+- Two real graphs are used: a sparse California hop-count network and a
+  weighted New York distance network.  This is still not a sample of all road
+  networks, and the weighted result should not be generalized to travel times
+  without repeating the experiment.
 - The grid families are synthetic controls.  They isolate structure, but they
   are not a sample of real maps.
 - The real graph's edge weights are not physical lengths or travel times.
