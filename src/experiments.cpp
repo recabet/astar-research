@@ -7,7 +7,9 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -109,6 +111,73 @@ namespace astar
             timed.time_ns = static_cast<std::uint64_t>(
                 std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count());
             return timed;
+        }
+
+        TimedResult run_timed_options(const Graph &graph, Vertex source, Vertex target,
+                                      Heuristic* heuristic,
+                                      const SearchOptions &options,
+                                      SearchScratch &scratch)
+        {
+            const auto start = std::chrono::steady_clock::now();
+            SearchResult result = shortest_path(graph, source, target, heuristic,
+                                                options, scratch);
+            const auto stop = std::chrono::steady_clock::now();
+            TimedResult timed;
+            timed.result = std::move(result);
+            timed.time_ns = static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count());
+            return timed;
+        }
+
+        std::vector<std::string> split_csv(const std::string &line)
+        {
+            std::vector<std::string> fields;
+            std::string field;
+            std::stringstream stream(line);
+            while (std::getline(stream, field, ',')) fields.push_back(field);
+            return fields;
+        }
+
+        std::vector<Query> load_query_pairs(const std::string &path)
+        {
+            std::ifstream in(path);
+            if (!in) throw std::runtime_error("cannot open query file: " + path);
+            std::string line;
+            if (!std::getline(in, line)) throw std::runtime_error("empty query file");
+            const std::vector<std::string> header = split_csv(line);
+            std::map<std::string, std::size_t> column;
+            for (std::size_t i = 0; i < header.size(); ++i) column[header[i]] = i;
+            for (const char* name: {"pair_id", "band", "source", "target", "variant"})
+            {
+                if (column.find(name) == column.end())
+                {
+                    throw std::runtime_error("query file missing column " +
+                                             std::string(name));
+                }
+            }
+
+            std::map<std::uint32_t, Query> by_pair;
+            while (std::getline(in, line))
+            {
+                if (line.empty()) continue;
+                const std::vector<std::string> fields = split_csv(line);
+                if (fields.size() < header.size()) continue;
+                if (fields[column["variant"]] != "dijkstra") continue;
+                const std::uint32_t pair_id = static_cast<std::uint32_t>(
+                    std::stoul(fields[column["pair_id"]]));
+                if (by_pair.find(pair_id) != by_pair.end()) continue;
+                Query query;
+                query.source = static_cast<Vertex>(
+                    std::stoul(fields[column["source"]]));
+                query.target = static_cast<Vertex>(
+                    std::stoul(fields[column["target"]]));
+                query.band = fields[column["band"]];
+                by_pair[pair_id] = std::move(query);
+            }
+            std::vector<Query> queries;
+            queries.reserve(by_pair.size());
+            for (auto &entry: by_pair) queries.push_back(std::move(entry.second));
+            return queries;
         }
 
         std::string make_graph_id(GridFamily family, std::uint32_t size)
@@ -639,6 +708,243 @@ namespace astar
             {
                 std::cerr << "  weighted road queries: " << (qi + 1) << "/"
                           << queries.size() << "\n";
+            }
+        }
+        return 0;
+    }
+
+    int run_weighted_road_epsilon(const BenchmarkOptions &options,
+                                  const Graph &graph,
+                                  const LandmarkData &landmarks,
+                                  const Coordinates &coordinates,
+                                  std::uint32_t main_k)
+    {
+        if (graph.n == 0 || landmarks.n != graph.n || coordinates.n != graph.n)
+        {
+            throw std::runtime_error(
+                "weighted-road epsilon: graph/landmark/coordinate size mismatch");
+        }
+        std::ofstream out(options.output);
+        if (!out) throw std::runtime_error("cannot open weighted-road epsilon output: " +
+                                           options.output);
+        out << "experiment,graph_id,family,size,pair_id,band,source,target,rep,"
+               "policy,epsilon,variant,time_ns,status,distance,optimal_distance,"
+               "cost_ratio,expanded,pushed,popped,stale_popped,relaxed_edges,"
+               "improved,heuristic_calls,heap_peak\n";
+
+        std::vector<Vertex> component(graph.n);
+        for (Vertex v = 0; v < graph.n; ++v) component[v] = v;
+        const std::uint64_t query_seed =
+                options.seed ^ fnv1a64("query_roadNet-NY-weighted");
+        const std::vector<Query> queries =
+                select_weighted_queries(graph, component, options.per_band, query_seed);
+        if (queries.empty()) throw std::runtime_error("no weighted-road epsilon queries");
+
+        ALTHeuristic alt(landmarks, main_k);
+        SearchScratch dijkstra_scratch(graph.n, TieBreak::LargerG);
+        SearchScratch closed_scratch(graph.n, TieBreak::LargerG);
+        SearchScratch reopen_scratch(graph.n, TieBreak::LargerG);
+
+        constexpr double epsilons[] = {
+            1.0, 1.1, 1.25, 1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0};
+        const std::string experiment = "weighted_road_eps";
+        const std::string graph_id = "roadNet-NY";
+        const std::string family = "road_weighted";
+
+        auto write_row = [&](std::uint32_t pair_id, const Query &query,
+                             std::uint32_t rep, const std::string &policy,
+                             double epsilon, const std::string &variant,
+                             const TimedResult &timed) {
+            out << experiment << ',' << graph_id << ',' << family << ",0,"
+                << pair_id << ',' << query.band << ',' << query.source << ','
+                << query.target << ',' << rep << ',' << policy << ',' << std::fixed
+                << std::setprecision(2) << epsilon << ',' << variant << ','
+                << timed.time_ns << ',' << status_name(timed.result.status) << ',';
+            if (timed.result.status == SearchStatus::Ok)
+            {
+                out << timed.result.distance;
+            }
+            else
+            {
+                out << -1;
+            }
+            const double cost_ratio = query.oracle_distance == 0
+                                              ? 1.0
+                                              : static_cast<double>(timed.result.distance) /
+                                                static_cast<double>(query.oracle_distance);
+            const SearchCounters &c = timed.result.counters;
+            out << ',' << query.oracle_distance << ',' << cost_ratio << ','
+                << c.expanded << ',' << c.pushed << ',' << c.popped << ','
+                << c.stale_popped << ',' << c.relaxed_edges << ','
+                << c.improved << ',' << c.heuristic_calls << ',' << c.heap_peak
+                << '\n';
+        };
+
+        for (std::size_t qi = 0; qi < queries.size(); ++qi)
+        {
+            const Query &query = queries[qi];
+            for (std::uint32_t rep = 1; rep <= options.reps; ++rep)
+            {
+                const TimedResult d =
+                        run_timed(graph, query.source, query.target, nullptr,
+                                  TieBreak::LargerG, options.time_limit_ns,
+                                  dijkstra_scratch);
+                if (d.result.status != SearchStatus::Ok ||
+                    d.result.distance != query.oracle_distance)
+                {
+                    throw std::runtime_error("weighted-road epsilon: Dijkstra mismatch");
+                }
+                write_row(static_cast<std::uint32_t>(qi), query, rep, "base", 0.0,
+                          "dijkstra", d);
+
+                for (int policy = 0; policy < 2; ++policy)
+                {
+                    const bool allow_reopen = policy == 1;
+                    const std::string policy_name = allow_reopen ? "reopen" : "closed";
+                    SearchScratch &scratch = allow_reopen ? reopen_scratch : closed_scratch;
+                    for (double epsilon: epsilons)
+                    {
+                        SearchOptions search_options;
+                        search_options.tie = TieBreak::LargerG;
+                        search_options.heuristic_weight = epsilon;
+                        search_options.allow_reopen = allow_reopen;
+                        search_options.time_limit_ns = options.time_limit_ns;
+                        const TimedResult a =
+                                run_timed_options(graph, query.source, query.target,
+                                                  &alt, search_options, scratch);
+                        if (a.result.status == SearchStatus::Ok &&
+                            a.result.distance < query.oracle_distance)
+                        {
+                            throw std::runtime_error(
+                                "weighted-road epsilon: A* beat the optimum");
+                        }
+                        if (epsilon == 1.0 &&
+                            (a.result.status != SearchStatus::Ok ||
+                             a.result.distance != query.oracle_distance))
+                        {
+                            throw std::runtime_error(
+                                "weighted-road epsilon: epsilon=1 is not optimal");
+                        }
+                        write_row(static_cast<std::uint32_t>(qi), query, rep,
+                                  policy_name, epsilon, "weighted_astar", a);
+                    }
+                }
+            }
+            if ((qi + 1) % 5 == 0)
+            {
+                std::cerr << "  weighted-road epsilon: " << (qi + 1) << "/"
+                          << queries.size() << "\n";
+            }
+        }
+        return 0;
+    }
+
+    int run_unit_road_benchmark(const BenchmarkOptions &options,
+                                const Graph &graph,
+                                const std::string &query_file,
+                                std::uint32_t main_k)
+    {
+        if (graph.n == 0) throw std::runtime_error("unit road: empty graph");
+        Graph unit;
+        unit.n = graph.n;
+        unit.offsets = graph.offsets;
+        unit.targets = graph.targets;
+        unit.weights.assign(graph.weights.size(), 1);
+
+        std::vector<Query> queries = load_query_pairs(query_file);
+        if (queries.empty()) throw std::runtime_error("unit road: no query pairs");
+        for (Query &query: queries)
+        {
+            const std::uint32_t d = bfs_distance(unit, query.source, query.target);
+            if (d == kInfiniteIndex)
+            {
+                throw std::runtime_error("unit road: query endpoints disconnected");
+            }
+            query.oracle_distance = d;
+        }
+
+        const LandmarkData landmarks = select_landmarks(unit, 16, options.seed);
+        ALTHeuristic alt1(landmarks, 1);
+        ALTHeuristic alt4(landmarks, 4);
+        ALTHeuristic alt8(landmarks, main_k);
+        ALTHeuristic alt16(landmarks, 16);
+
+        SearchScratch dijkstra_scratch(unit.n, TieBreak::LargerG);
+        SearchScratch alt1_scratch(unit.n, TieBreak::LargerG);
+        SearchScratch alt4_scratch(unit.n, TieBreak::LargerG);
+        SearchScratch alt8_scratch(unit.n, TieBreak::LargerG);
+        SearchScratch alt16_scratch(unit.n, TieBreak::LargerG);
+        SearchScratch alt8_nodeid_scratch(unit.n, TieBreak::NodeId);
+
+        struct Variant {
+            std::string name;
+            std::string algorithm;
+            std::string tie;
+            std::uint32_t k;
+            Heuristic* heuristic;
+            TieBreak tie_break;
+            SearchScratch* scratch;
+        };
+        std::vector<Variant> variants = {
+            {"dijkstra", "dijkstra", "larger_g", 0, nullptr, TieBreak::LargerG,
+             &dijkstra_scratch},
+            {"astar_alt1", "astar", "larger_g", 1, &alt1, TieBreak::LargerG,
+             &alt1_scratch},
+            {"astar_alt4", "astar", "larger_g", 4, &alt4, TieBreak::LargerG,
+             &alt4_scratch},
+            {"astar_alt8", "astar", "larger_g", main_k, &alt8, TieBreak::LargerG,
+             &alt8_scratch},
+            {"astar_alt16", "astar", "larger_g", 16, &alt16, TieBreak::LargerG,
+             &alt16_scratch},
+            {"astar_alt8_node_id", "astar", "node_id", main_k, &alt8, TieBreak::NodeId,
+             &alt8_nodeid_scratch},
+        };
+
+        std::ofstream out(options.output);
+        if (!out) throw std::runtime_error("cannot open unit-road output: " + options.output);
+        out << csv_header();
+
+        for (const Variant &variant: variants)
+        {
+            (void) run_timed(unit, queries[0].source, queries[0].target,
+                             variant.heuristic, variant.tie_break, options.time_limit_ns,
+                             *variant.scratch);
+        }
+
+        const std::string experiment = "unit_road";
+        const std::string graph_id = "roadNet-NY-unit";
+        const std::string family = "road_unit";
+        const std::uint64_t query_seed = options.seed ^ fnv1a64("unit_road");
+        for (std::size_t qi = 0; qi < queries.size(); ++qi)
+        {
+            const Query &query = queries[qi];
+            for (std::uint32_t rep = 1; rep <= options.reps; ++rep)
+            {
+                const std::size_t rotation = (rep - 1) % variants.size();
+                for (std::size_t v = 0; v < variants.size(); ++v)
+                {
+                    const Variant &variant = variants[(v + rotation) % variants.size()];
+                    const TimedResult timed =
+                            run_timed(unit, query.source, query.target,
+                                      variant.heuristic, variant.tie_break,
+                                      options.time_limit_ns, *variant.scratch);
+                    const bool correct =
+                            result_matches_oracle(timed.result, query.oracle_distance);
+                    write_record(out, experiment, graph_id, family, 0, 0, 0.0, unit,
+                                 options.seed, query_seed, static_cast<std::uint32_t>(qi),
+                                 query, variant.name, variant.algorithm, variant.tie,
+                                 variant.k, rep, timed.time_ns, timed.result, correct);
+                    if (timed.result.status == SearchStatus::Timeout)
+                    {
+                        std::cerr << "  timeout on unit pair " << qi << " variant "
+                                  << variant.name << "\n";
+                    }
+                    else if (!correct)
+                    {
+                        throw std::runtime_error("distance mismatch on unit pair " +
+                                                 std::to_string(qi));
+                    }
+                }
             }
         }
         return 0;

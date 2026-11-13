@@ -108,6 +108,10 @@ namespace
                 "                  [--main-k 8] [--time-limit-s 30]\n"
                 "  benchmark-weighted-road --graph FILE --landmarks FILE --coords FILE\n"
                 "                  --out FILE [--reps 5] [--per-band 10] [--main-k 8]\n"
+                "  weighted-road-eps --graph FILE --landmarks FILE --coords FILE\n"
+                "                  --out FILE [--reps 5] [--per-band 10] [--main-k 8]\n"
+                "  benchmark-unit-road --graph WEIGHTED_GRAPH --queries FILE --out FILE\n"
+                "                  [--reps 5] [--main-k 8]\n"
                 "  validate-real --graph FILE --landmarks FILE [--samples 30]\n"
                 "                  [--main-k 8] [--seed N]\n"
                 "  diagnose-grid --out FILE [--sizes ...] [--families ...]\n"
@@ -547,6 +551,65 @@ int main(int argc, char** argv)
             ensure_parent_directory(bench.output);
             return run_weighted_road_benchmark(bench, graph, landmarks, coordinates,
                                                main_k);
+        }
+
+        if (command == "weighted-road-eps")
+        {
+            const auto options = parse_options(argc, argv, 2);
+            const std::string graph_path = get_option(options, "--graph", "");
+            const std::string landmark_path = get_option(options, "--landmarks", "");
+            const std::string coord_path = get_option(options, "--coords", "");
+            if (graph_path.empty() || landmark_path.empty() || coord_path.empty())
+            {
+                throw std::runtime_error(
+                    "weighted-road-eps needs --graph, --landmarks and --coords");
+            }
+            BenchmarkOptions bench;
+            bench.output = get_option(options, "--out", "results/weighted_road_eps.csv");
+            bench.reps = parse_u32(get_option(options, "--reps", "5"), "--reps");
+            bench.per_band = parse_u32(get_option(options, "--per-band", "10"), "--per-band");
+            bench.seed = parse_u64(get_option(options, "--seed", "20261030"), "--seed");
+            bench.time_limit_ns = static_cast<std::uint64_t>(
+                parse_double(get_option(options, "--time-limit-s", "30"), "--time-limit-s") *
+                1e9);
+            const std::uint32_t main_k =
+                    parse_u32(get_option(options, "--main-k", "8"), "--main-k");
+
+            const Graph graph = load_graph_binary(graph_path);
+            const LandmarkData landmarks = load_landmarks_binary(landmark_path);
+            const Coordinates coordinates = load_coordinates_binary(coord_path);
+            if (landmarks.n != graph.n || coordinates.n != graph.n)
+            {
+                throw std::runtime_error(
+                    "graph, landmark and coordinate sizes do not match");
+            }
+            ensure_parent_directory(bench.output);
+            return run_weighted_road_epsilon(bench, graph, landmarks, coordinates,
+                                             main_k);
+        }
+
+        if (command == "benchmark-unit-road")
+        {
+            const auto options = parse_options(argc, argv, 2);
+            const std::string graph_path = get_option(options, "--graph", "");
+            const std::string query_file =
+                    get_option(options, "--queries", "results/weighted_road.csv");
+            if (graph_path.empty())
+            {
+                throw std::runtime_error("benchmark-unit-road needs --graph");
+            }
+            BenchmarkOptions bench;
+            bench.output = get_option(options, "--out", "results/unit_road.csv");
+            bench.reps = parse_u32(get_option(options, "--reps", "5"), "--reps");
+            bench.seed = parse_u64(get_option(options, "--seed", "20261030"), "--seed");
+            bench.time_limit_ns = static_cast<std::uint64_t>(
+                parse_double(get_option(options, "--time-limit-s", "30"), "--time-limit-s") *
+                1e9);
+            const std::uint32_t main_k =
+                    parse_u32(get_option(options, "--main-k", "8"), "--main-k");
+            const Graph graph = load_graph_binary(graph_path);
+            ensure_parent_directory(bench.output);
+            return run_unit_road_benchmark(bench, graph, query_file, main_k);
         }
 
         if (command == "validate-real")

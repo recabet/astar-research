@@ -58,6 +58,21 @@ namespace astar
                                     const Coordinates &coordinates,
                                     std::uint32_t main_k = 8);
 
+    // Weighted A* epsilon sweep on the weighted road graph, with closed-list and
+    // reopening policies.  The cost ratio is returned weighted distance / optimal.
+    int run_weighted_road_epsilon(const BenchmarkOptions &options,
+                                  const Graph &graph,
+                                  const LandmarkData &landmarks,
+                                  const Coordinates &coordinates,
+                                  std::uint32_t main_k = 8);
+
+    // Same-topology unit-weight control: reuse the weighted road query pairs but
+    // replace every edge weight with 1 and recompute BFS ALT landmarks.
+    int run_unit_road_benchmark(const BenchmarkOptions &options,
+                                const Graph &graph,
+                                const std::string &query_file,
+                                std::uint32_t main_k = 8);
+
     int run_validation(const Graph &graph, const LandmarkData* landmarks,
                        std::uint32_t main_k, std::uint32_t sample_queries,
                        std::uint64_t seed);

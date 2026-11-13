@@ -265,9 +265,9 @@ def main() -> None:
     lines.append(
         "**Tie-breaking is still visible.**  With distance weights the "
         "`node_id` rule is worse than `larger_g` on the ALT comparison, but the "
-        "penalty is smaller than the 1.14x expansion penalty observed on the "
-        "unit-hop California graph.  Fewer exact ties is exactly what the "
-        "plateau mechanism predicts.\n")
+        "penalty is smaller than in the same-topology unit-weight control "
+        "(1.17x there).  Fewer exact ties is exactly what the plateau mechanism "
+        "predicts.\n")
     lines.append("## Caveats\n")
     lines.append(
         "- This is the DIMACS New York network, not the frozen SNAP California "

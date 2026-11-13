@@ -57,7 +57,7 @@ ALT's advantage grows with the number of landmarks and is fairly flat across wei
 
 **Weights change the absolute numbers, not the ranking.**  The unweighted California graph and the weighted New York graph are different networks, so their speedups are not directly comparable.  Within the weighted graph, Dijkstra < Euclidean < ALT K=1 < ALT K=4 < ALT K=8 < ALT K=16 in median time.
 
-**Tie-breaking is still visible.**  With distance weights the `node_id` rule is worse than `larger_g` on the ALT comparison, but the penalty is smaller than the 1.14x expansion penalty observed on the unit-hop California graph.  Fewer exact ties is exactly what the plateau mechanism predicts.
+**Tie-breaking is still visible.**  With distance weights the `node_id` rule is worse than `larger_g` on the ALT comparison, but the penalty is smaller than in the same-topology unit-weight control (1.17x there).  Fewer exact ties is exactly what the plateau mechanism predicts.
 
 ## Caveats
 
