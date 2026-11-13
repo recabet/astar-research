@@ -289,6 +289,7 @@ scripts/run_weighted_road.sh     weighted DIMACS road experiment
 scripts/analyze_weighted_road.py weighted-road analysis
 scripts/analyze_weighted_road_eps.py  weighted-road epsilon analysis
 scripts/analyze_unit_road.py     weighted-versus-unit control analysis
+scripts/render_appendix_tables.py full report appendix tables
 scripts/run_omp.sh               OpenMP batch-scaling extension
 scripts/check_performance_mode.sh  matched subset run in another power mode
 scripts/analyze_perf_mode.py     compares that subset with the frozen main data
@@ -297,7 +298,7 @@ HYPOTHESES.md                    predictions written before the main run
 PROTOCOL.md                      frozen protocol
 RESULTS.md                       answer to the research question
 report/report.tex                IEEE two-column report source
-report/report.pdf                IEEE two-column report (10 pages)
+report/report.pdf                IEEE two-column report (13 pages)
 slides/checkpoint.tex            checkpoint deck source
 slides/checkpoint.pdf            rendered checkpoint deck
 slides/defence.tex               defence deck source

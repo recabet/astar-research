@@ -2,6 +2,7 @@
 
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{longtable}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{url}
@@ -80,10 +81,40 @@ The main contributions are:
         savings are smaller than expansion savings.
 \end{itemize}
 
-Section~\ref{sec:background} reviews the algorithms.  Section~\ref{sec:data}
+Section~\ref{sec:related} positions the work.  Section~\ref{sec:background}
+reviews the algorithms.  Section~\ref{sec:data}
 describes the graphs and Section~\ref{sec:method} the implementation and
 protocol.  Section~\ref{sec:results} reports the measurements; Sections
 \ref{sec:discussion} and \ref{sec:threats} discuss the meaning and limits.
+
+\section{Related Work}
+\label{sec:related}
+
+Goal-directed shortest-path search is a mature area.  Dijkstra's algorithm
+\cite{dijkstra1959} is the exact baseline, and \Astar{} \cite{hart1968} adds an
+admissible heuristic.  ALT \cite{goldberg2005} combines \Astar{} with distances
+to a small set of landmarks; it is the main competitor on the road graph in
+this paper.  Contraction hierarchies \cite{geisberger2008} and other
+preprocessing-heavy route-planning methods are substantially faster on
+continental road networks, but they require a different preprocessing and query
+architecture, so we keep the comparison to Dijkstra, plain \Astar{}, and ALT.
+
+Weighted \Astar{} \cite{pohl1970} multiplies the heuristic by
+\(\epsilon>1\) and trades bounded suboptimality for speed.  Anytime variants
+such as ARA* \cite{likhachev2003} refine the solution over time.  Our weighted
+sweep differs in emphasis: we measure the price of optimality under both a
+closed-list and a reopening policy, and we relate the result to heuristic
+quality and to equal-\(f\) plateaus.  The plateau metric is also a practical
+addition to the tie-breaking literature, which usually treats heap order as an
+implementation detail.
+
+On the parallel side, delta-stepping \cite{meyer2003} is a classical
+parallelisable shortest-path algorithm, and GPU graph libraries have
+demonstrated large batch speedups \cite{harish2007}.  Our OpenMP study is a
+throughput experiment rather than a new parallel algorithm; a GPU port is a
+natural extension, but it is outside the measurements reported here.  Finally,
+the DIMACS road instances \cite{dimacs} and SNAP \cite{snap} provide the
+realistic topologies used in our evaluation.
 
 \section{Background}
 \label{sec:background}
@@ -891,6 +922,8 @@ experiment is reproduced with
 \code{./scripts/run\_novelty.sh}; and the OpenMP study with
 \code{./scripts/run\_omp.sh}.
 
+\input{appendix_tables}
+
 \begin{thebibliography}{00}
 \bibitem{dijkstra1959}
 E. W. Dijkstra, ``A note on two problems in connexion with graphs,''
@@ -905,6 +938,29 @@ vol. 4, no. 2, pp. 100--107, 1968.
 A. V. Goldberg and C. Harrelson, ``Computing the shortest path: \Astar{} search
 meets graph theory,'' in \emph{Proc. ACM--SIAM Symp. Discrete Algorithms
 (SODA)}, 2005, pp. 156--165.
+
+\bibitem{geisberger2008}
+R. Geisberger, P. Sanders, D. Schultes, and D. Delling, ``Contraction
+hierarchies: Faster and simpler hierarchical routing in road networks,'' in
+\emph{Proc. Workshop on Experimental Algorithms (WEA)}, 2008, pp. 319--333.
+
+\bibitem{pohl1970}
+I. Pohl, ``Heuristic search viewed as path finding in a graph,''
+\emph{Artificial Intelligence}, vol. 1, no. 3--4, pp. 193--204, 1970.
+
+\bibitem{likhachev2003}
+M. Likhachev, G. J. Gordon, and S. Thrun, ``ARA*: Anytime \Astar{} with
+provable bounds on sub-optimality,'' in \emph{Advances in Neural Information
+Processing Systems (NIPS)}, 2003, pp. 767--774.
+
+\bibitem{meyer2003}
+U. Meyer and P. Sanders, ``$\Delta$-stepping: A parallelizable shortest path
+algorithm,'' \emph{Journal of Algorithms}, vol. 49, no. 1, pp. 114--152, 2003.
+
+\bibitem{harish2007}
+P. Harish and P. J. Narayanan, ``Accelerating large graph algorithms on the GPU
+using CUDA,'' in \emph{Proc. Int. Conf. High Performance Computing (HiPC)},
+2007, pp. 197--208.
 
 \bibitem{russell2020}
 S. Russell and P. Norvig, \emph{Artificial Intelligence: A Modern Approach},
