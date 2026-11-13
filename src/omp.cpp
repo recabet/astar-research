@@ -226,7 +226,7 @@ namespace astar
         task_out << "graph_id,family,threads,batch_rep,pair_id,rep,band,source,target,"
                 "time_d,time_a,expanded_d,expanded_a,status_d,status_a\n";
 
-        const std::uint64_t time_limit_ns = 30ull * 1000ull * 1000ull * 1000ull;
+        constexpr std::uint64_t time_limit_ns = 30ull * 1000ull * 1000ull * 1000ull;
 
         for (std::uint32_t size: grid_sizes)
         {

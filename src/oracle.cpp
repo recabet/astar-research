@@ -42,7 +42,7 @@ namespace astar
         if (source >= graph.n) return dist;
 
         using Item = std::pair<Distance, Vertex>;
-        std::priority_queue<Item, std::vector<Item>, std::greater<Item> > queue;
+        std::priority_queue<Item, std::vector<Item>, std::greater<> > queue;
         dist[source] = 0;
         queue.emplace(0, source);
 

@@ -44,7 +44,7 @@ namespace astar
         {
             const std::vector<std::uint32_t> d = bfs_distances(graph, current);
             data.ids[l] = current;
-            std::copy(d.begin(), d.end(),
+            std::ranges::copy(d.begin(), d.end(),
                       data.distances.begin() + static_cast<std::size_t>(l) * graph.n);
 
             if (l == 0)
