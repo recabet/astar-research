@@ -364,6 +364,19 @@
 \end{frame}
 
 
+\begin{frame}{Why tie-breaking matters: equal-f plateaus}
+  \centering
+  \includegraphics[width=\textwidth]{../figures/tie_plateau.png}
+  \vspace{0.2em}
+
+  \footnotesize
+  A plateau is a maximal run of settled vertices with the same $f$.  The open
+  grid is one saturated plateau (1.00), so the tie-break decides the route; the
+  maze has almost none (0.002) and is neutral.  On the road graph the plateau
+  is intermediate (0.35) and predicts the penalty: expansion
+  $\rho=0.53$, $p=0.003$; the high-plateau third pays 1.25x median time.
+\end{frame}
+
 \begin{frame}{What makes a heuristic informative?}
   \begin{columns}[T,onlytextwidth]
     \begin{column}{0.47\textwidth}

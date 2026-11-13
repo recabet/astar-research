@@ -3,8 +3,9 @@
 These analyses were added **after** the frozen main experiment.  They do not
 change the main protocol or its data; they are clearly labelled exploratory in
 the report.  Full tables are in `results/novelty.md`, with the wider weighted
-sweep in `results/weighted_families.md` and the real tie-break in
-`results/real_tie_break.md`.  The C++/Python pipeline is reproducible with
+sweep in `results/weighted_families.md`, the real tie-break in
+`results/real_tie_break.md`, and the plateau mechanism in
+`results/tie_plateau.md`.  The C++/Python pipeline is reproducible with
 `./scripts/run_novelty.sh`.
 
 ## 1. Heuristic informativeness
@@ -79,6 +80,17 @@ noisy (p = 0.124); the expansion count is the reliable signal.  The real graph
 therefore confirms the grid finding: `larger_g` is a justified default, not a
 cosmetic choice.  Details are in `results/real_tie_break.md`.
 
+To explain both patterns we then counted **equal-f plateaus**: maximal runs of
+settled vertices that share the same f value, which is exactly where the
+tie-break rule can redirect the search.  The open grid is one long plateau
+(median longest run = 1.00 of the search), so the rule decides the route and the
+tail is huge.  The maze is the opposite (median 0.002), so the rule is neutral.
+The road graph has intermediate, query-dependent plateaus (median 0.35):
+longer plateaus predict a larger `node_id` penalty (expansion rho = 0.53,
+p = 0.003; time rho = 0.41, p = 0.025).  The low-plateau third is neutral
+(median time ratio 1.02), while the high-plateau third pays 1.25x (worst 2.18x).
+The mechanism is reported in `results/tie_plateau.md`.
+
 
 ## 4. Batch throughput with OpenMP
 
@@ -119,6 +131,8 @@ that a single A* query becomes faster.
 - `results/weighted_real_closed.csv` — closed-list road sweep (primary)
 - `results/weighted_real.csv` — reopening road sweep (sensitivity)
 - `results/real_tie_break.md` — real-graph `node_id` vs `larger_g` analysis
+- `results/tie_plateau_grid.csv`, `results/tie_plateau_real.csv` — equal-f plateau runs
+- `results/tie_plateau.md` — plateau mechanism report
 - `results/omp_scaling.csv` — OpenMP batch times
 - `results/omp_tasks.csv` — OpenMP per-query latencies
 - `results/novelty.md`, `results/omp.md` — generated tables
@@ -127,5 +141,6 @@ that a single A* query becomes faster.
 - `figures/novelty_weighted_maze.png`
 - `figures/weighted_pareto.png`
 - `figures/real_tie_break.png`
+- `figures/tie_plateau.png`
 - `figures/omp_scaling.png`
 - `figures/omp_astar_advantage.png`

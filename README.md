@@ -43,8 +43,9 @@ To rerun the full frozen experiment and the analysis:
 ./scripts/run_experiments.sh
 ```
 
-The exploratory extensions (heuristic informativeness, weighted A*, and the
-real-graph tie-break) are separate from the frozen protocol:
+The exploratory extensions (heuristic informativeness, weighted A*, the
+real-graph tie-break, and the equal-f plateau mechanism) are separate from the
+frozen protocol:
 
 ```bash
 ./scripts/run_novelty.sh
@@ -229,6 +230,9 @@ results/weighted_real_closed.csv   weighted A* road sweep, closed list
 results/weighted_real.csv          weighted A* road sweep, reopening
 results/weighted_families.md       generated weighted-A* report
 results/real_tie_break.md         real-graph tie-break analysis
+results/tie_plateau_grid.csv      equal-f plateau runs on grids
+results/tie_plateau_real.csv      equal-f plateau runs on the road graph
+results/tie_plateau.md            plateau mechanism report
 results/omp_scaling.csv           OpenMP batch wall-clock times
 results/omp_tasks.csv             OpenMP per-query latencies
 results/novelty.md                generated novelty tables
@@ -240,6 +244,7 @@ results/perf_mode_summary.csv     performance-mode summary table
 figures/novelty_*.png             novelty figures
 figures/weighted_pareto.png       weighted-A* cost/speed frontier
 figures/real_tie_break.png        real-graph tie-break figure
+figures/tie_plateau.png           equal-f plateau mechanism figure
 figures/omp_*.png                 OpenMP figures
 figures/perf_mode.png             performance-mode summary figure
 NOVELTY.md                        summary of the exploratory extensions
@@ -247,6 +252,7 @@ download_data.sh                 downloads/prepares SNAP roadNet-CA
 scripts/run_novelty.sh           heuristic + weighted-A* extensions
 scripts/analyze_weighted_families.py  weighted-A* all-family/road analysis
 scripts/analyze_real_tie_break.py     real-graph tie-break analysis
+scripts/analyze_tie_plateau.py        equal-f plateau mechanism analysis
 scripts/run_omp.sh               OpenMP batch-scaling extension
 scripts/check_performance_mode.sh  matched subset run in another power mode
 scripts/analyze_perf_mode.py     compares that subset with the frozen main data
@@ -295,16 +301,21 @@ Four post-freeze analyses are included and clearly labelled exploratory:
    7.4x faster than Dijkstra in this sweep and the closed-list `epsilon=1.1`
    variant reaches 8.8x for 1.4% cost; reopening collapses to 5.4x.  The perfect maze remains a
    control: unique paths keep the cost ratio at exactly 1.00.
-3. **Real-graph tie-break.** The frozen run already contains `node_id` and
-   `larger_g` at ALT K=8.  `node_id` expands a median 1.14x as many vertices,
-   is worse on 27/30 queries, and reaches 2.39x on the worst query; median time
-   is 1.09x but noisy.  This confirms the grid tail-risk result on real data.
+3. **Real-graph tie-break and plateau mechanism.** The frozen run already
+   contains `node_id` and `larger_g` at ALT K=8.  `node_id` expands a median
+   1.14x as many vertices, is worse on 27/30 queries, and reaches 2.39x on the
+   worst query; median time is 1.09x but noisy.  A new pass counts maximal
+   equal-f runs: the open grid is one saturated plateau, the maze has almost
+   none, and on the road graph longer plateaus predict the penalty
+   (expansion rho=0.53, p=0.003).  This explains why tie-breaking is a
+   tail-risk effect.
 4. **Batch throughput with OpenMP.** Independent queries scale to 9.73x at 16
    threads (61% efficiency); per-query latency inflates by 18--21%, and the A*
    advantage remains.  This is a throughput result, not single-query speedup.
 
 See `NOVELTY.md`, `results/novelty.md`, `results/weighted_families.md`,
-`results/real_tie_break.md`, `results/omp.md`, and the report/talk sections.
+`results/real_tie_break.md`, `results/tie_plateau.md`, `results/omp.md`, and the
+report/talk sections.
 
 ## Limitations
 

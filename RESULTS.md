@@ -183,6 +183,20 @@ worst query (paired Wilcoxon p=4.4e-6).  Median wall-clock time is 1.09x
 reliable signal, and it confirms that `larger_g` is the right default.  Details:
 `results/real_tie_break.md` and `figures/real_tie_break.png`.
 
+### Mechanism: equal-f plateaus
+A tie-break can only matter where several settled vertices share the same f
+value.  We reran both rules and counted maximal equal-f runs.  On the open grid
+the whole search is effectively one plateau (median longest run = **1.00** of
+all expansions), so `node_id` can redirect the route and create the 285.7x tail.
+On the maze there is almost no plateau (median **0.002**), and the ratio is
+neutral.  The road graph is intermediate and variable: its median longest run
+is **0.35**, and longer plateaus predict a larger `node_id` penalty
+(expansion rho=0.53, p=0.003; time rho=0.41, p=0.025).  The low-plateau third is
+neutral (median time ratio 1.02), while the high-plateau third pays 1.25x
+(worst 2.18x).  This explains why tie-breaking is a tail-risk effect rather than
+a median effect.  Details: `results/tie_plateau.md` and
+`figures/tie_plateau.png`.
+
 ## Hypothesis verdicts
 
 | hypothesis | verdict | evidence |

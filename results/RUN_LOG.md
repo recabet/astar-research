@@ -179,6 +179,41 @@ the primary result; reopening is a sensitivity check.
 c57a082d64a56f926d670ec35ef2e564d474573c03303cc8c6fe6b2bd4239826  results/weighted_real_closed.csv
 ```
 
+## Equal-f plateau mechanism run (2026-11-13)
+
+The search now also counts maximal runs of settled vertices that share the same
+`f` value.  This is a post-freeze instrumentation change; the frozen `grid.csv`
+and `real.csv` schemas and values are untouched.
+
+```text
+./build/astar_research tie-plateau-grid \
+  --out results/tie_plateau_grid.csv --sizes 128,256,512,1024 \
+  --families open,random,clustered,rooms,maze --per-band 5 --seed 20261030
+
+./build/astar_research tie-plateau-real \
+  --graph data/roadNet-CA.bin --landmarks data/roadNet-CA.alt16.bin \
+  --out results/tie_plateau_real.csv --main-k 8 --per-band 10 \
+  --seed 20261030
+```
+
+- Grid: 20 graphs x 15 queries x 2 tie-breaks = 600 rows; wall clock 9.5 s;
+  peak RSS 110 MB.
+- Road: 30 queries x 2 tie-breaks = 60 rows; wall clock 7.7 s; peak RSS 305 MB.
+- All 660 rows `status=ok`; every returned distance matches the frozen oracle.
+- Road result: longer equal-f plateaus predict the `node_id` penalty
+  (expansion rho=0.53, p=0.003; time rho=0.41, p=0.025).  Low/mid/high plateau
+  tertiles have median time ratios 1.02/1.07/1.25.  Open grids are one
+  saturated plateau; mazes have almost none.
+- Analysis: `python3 scripts/analyze_tie_plateau.py` writes
+  `results/tie_plateau.md`, `summary_tie_plateau*.csv`,
+  `paired_tie_plateau.csv` and `figures/tie_plateau.png`.
+- Checksums:
+
+```text
+61eed48d05c23cd0d69bfb97a4eea32535900cc9aaddaf6ab55945a804f721a5  results/tie_plateau_grid.csv
+495bb06b0664bee408a79738f532ec2fbe1cb74231669c9b6b781ab40fa37a97  results/tie_plateau_real.csv
+```
+
 ## OpenMP batch-throughput run
 
 Separate from the frozen protocol and the query-level study.  The process was

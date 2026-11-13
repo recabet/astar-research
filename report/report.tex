@@ -435,6 +435,12 @@ that difference is noisy ($p=0.124$).  The expansion count is the reliable
 signal, and it confirms the grid conclusion: \code{larger\_g} is a justified
 default rather than a cosmetic choice.
 
+A final mechanism check counts maximal equal-\(f\) plateaus, where the
+tie-break can change the order: the open grid is one saturated plateau
+(median longest run \(=1.00\)), the maze has almost none (\(0.002\)), and the
+road graph is intermediate (\(0.35\)).  On the road graph, longer plateaus
+predict a larger \code{node\_id} penalty (expansion \(\rho=0.53\), \(p=0.003\)).
+
 
 \subsection{Heuristic informativeness}
 \label{sec:informativeness}
@@ -542,7 +548,6 @@ random      & closed & 1.10 & 20.1x & 1.018 & 1.06 & 1.07\\
 random      & closed & 1.25 & 38.2x & 1.055 & 1.13 & 1.15\\
 rooms       & closed & 1.25 & 24.8x & 1.031 & 1.09 & 1.11\\
 clustered   & closed & 1.50 & 26.5x & 1.050 & 1.15 & 1.21\\
-maze        & closed & 50.0 & 1.10x & 1.000 & 1.00 & 1.00\\
 road        & closed & 1.00 & 7.4x  & 1.000 & 1.00 & 1.00\\
 road        & closed & 1.10 & 8.8x  & 1.014 & 1.04 & 1.04\\
 road        & reopen & 1.10 & 5.4x  & 1.011 & 1.04 & 1.04\\
@@ -552,7 +557,7 @@ road        & reopen & 1.10 & 5.4x  & 1.011 & 1.04 & 1.04\\
 
 \begin{figure*}[!t]
   \centering
-  \includegraphics[width=0.76\textwidth]{../figures/weighted_pareto.png}
+  \includegraphics[width=0.72\textwidth]{../figures/weighted_pareto.png}
   \caption{Weighted \Astar{} on graphs with alternative paths.  Left:
   closed-list cost versus speed, with selected $\epsilon$ labels.  Right: on
   the road graph the closed list is faster at every $\epsilon>1$, while
@@ -651,8 +656,7 @@ the road graph satisfies it with ALT; the maze does not.
 
 The result also explains why a strong but expensive heuristic can still win on
 the road graph.  K=16 evaluates 16 landmark differences per generated vertex,
-but the expansion count falls enough that the net time is lower than K=8.  The
-trade-off is graph-dependent, not a fixed property of ALT.
+but the expansion count falls enough that the net time is lower than K=8.
 
 \section{Threats to Validity}
 \label{sec:threats}
@@ -676,9 +680,8 @@ road graph (0.967--1.020, $p=0.21$); expansion counts were identical.  We reduce
 noise by pinning one CPU, using one warm-up, repeating runs and reporting
 medians, IQRs, bootstrap intervals and paired tests.  The median within-query CV
 is 7--10\%, much smaller than the reported treatment ratios, except for the
-explicitly non-significant K=1 road result.  A different heap, a decrease-key
-implementation or a different compiler could change constants, but not the
-mechanism: \Astar{} pays more per expansion.
+explicitly non-significant K=1 road result.  A different heap or compiler
+could change constants, but not the mechanism.
 
 The open-grid result is partly a tie-breaking effect.  With \code{node\_id},
 open-grid \Astar{} still expands 54x fewer vertices than Dijkstra, but
@@ -714,10 +717,10 @@ $-0.007$ on the road graph, so the ranking is not an artefact of the host power
 mode.
 
 \section*{Reproducibility}
-The source code, test suite, frozen protocol, raw CSV files, analysis scripts
-and figures are included in the project repository.  The main run uses seed
-20261030, 3 grid repeats and 5 road repeats, and all 3,600 runs are checked
-against a BFS oracle.  The full experiment is reproduced with
+Source, tests, frozen protocol, raw data, scripts and figures are in the
+project repository.  The main run uses seed 20261030, 3 grid repeats and 5 road
+repeats, and all 3,600 runs are checked against a BFS oracle.  The full
+experiment is reproduced with
 \code{./scripts/run\_experiments.sh}; the exploratory analyses with
 \code{./scripts/run\_novelty.sh}; and the OpenMP study with
 \code{./scripts/run\_omp.sh}.
