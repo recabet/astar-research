@@ -41,7 +41,7 @@ namespace astar
             return v < blocked.size() && blocked[v] == 0;
         }
 
-        [[nodiscard]] Vertex cell(std::uint32_t row, std::uint32_t col) const
+        [[nodiscard]] Vertex cell(const std::uint32_t row,const  std::uint32_t col) const
         {
             return static_cast<Vertex>(static_cast<std::uint64_t>(row) * width + col);
         }
