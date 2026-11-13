@@ -240,6 +240,46 @@ namespace astar
                 std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count());
             return timed;
         }
+
+        void write_tie_plateau_header(std::ofstream &out)
+        {
+            out << "experiment,graph_id,family,size,pair_id,band,source,target,"
+                   "tie_break,time_ns,status,distance,expanded,pushed,popped,"
+                   "stale_popped,relaxed_edges,improved,heuristic_calls,heap_peak,"
+                   "equal_f_expanded,f_plateau_runs,max_f_plateau\n";
+        }
+
+        void write_tie_plateau_row(std::ofstream &out, const std::string &experiment,
+                                   const std::string &id, const std::string &family,
+                                   std::uint32_t size, std::size_t pair_id,
+                                   const Query &query, const char* tie_name,
+                                   const TimedSearch &timed)
+        {
+            const SearchResult &result = timed.result;
+            out << experiment << ',' << id << ',' << family << ',' << size << ','
+                << static_cast<std::uint32_t>(pair_id) << ',' << query.band << ','
+                << query.source << ',' << query.target << ',' << tie_name << ','
+                << timed.time_ns << ',' << status_name(result.status) << ',';
+            if (result.status == SearchStatus::Ok)
+            {
+                out << result.distance;
+            }
+            else
+            {
+                out << -1;
+            }
+            out << ',' << result.counters.expanded << ','
+                << result.counters.pushed << ','
+                << result.counters.popped << ','
+                << result.counters.stale_popped << ','
+                << result.counters.relaxed_edges << ','
+                << result.counters.improved << ','
+                << result.counters.heuristic_calls << ','
+                << result.counters.heap_peak << ','
+                << result.counters.equal_f_expanded << ','
+                << result.counters.f_plateau_runs << ','
+                << result.counters.max_f_plateau << '\n';
+        }
     } // namespace
 
     int run_grid_diagnostics(const std::string &output,
@@ -692,4 +732,131 @@ namespace astar
         }
         return 0;
     }
+    int run_tie_plateau_grid(const std::string &output,
+                             const std::vector<std::uint32_t> &sizes,
+                             const std::vector<GridFamily> &families,
+                             std::uint32_t per_band, std::uint64_t seed)
+    {
+        std::ofstream out(output);
+        if (!out) throw std::runtime_error("cannot open plateau output: " + output);
+        write_tie_plateau_header(out);
+
+        for (GridFamily family: families)
+        {
+            for (std::uint32_t size: sizes)
+            {
+                const std::string id = grid_id(family, size);
+                GridConfig config;
+                config.width = size;
+                config.height = size;
+                config.family = family;
+                config.obstacle_density =
+                        family == GridFamily::Random ? 0.20
+                        : family == GridFamily::Clustered ? 0.30
+                                                          : 0.0;
+                config.seed = seed ^ fnv1a64("graph_" + id);
+                const Grid grid = make_grid(config);
+                const std::vector<Vertex> component =
+                        largest_connected_component(grid.graph);
+                if (component.size() < 10) continue;
+                const std::uint64_t query_seed = seed ^ fnv1a64("query_" + id);
+                const std::vector<Query> queries =
+                        select_queries(grid.graph, component, per_band, query_seed);
+                if (queries.empty()) continue;
+
+                ManhattanHeuristic manhattan(size);
+                SearchScratch node_scratch(grid.graph.n, TieBreak::NodeId);
+                SearchScratch g_scratch(grid.graph.n, TieBreak::LargerG);
+
+                for (std::size_t qi = 0; qi < queries.size(); ++qi)
+                {
+                    const Query &query = queries[qi];
+                    SearchOptions node_options;
+                    node_options.tie = TieBreak::NodeId;
+                    SearchOptions g_options;
+                    g_options.tie = TieBreak::LargerG;
+
+                    const TimedSearch node =
+                            timed_search(grid.graph, query.source, query.target,
+                                         &manhattan, node_options, node_scratch);
+                    const TimedSearch large_g =
+                            timed_search(grid.graph, query.source, query.target,
+                                         &manhattan, g_options, g_scratch);
+                    if (node.result.status != SearchStatus::Ok ||
+                        large_g.result.status != SearchStatus::Ok ||
+                        node.result.distance != query.oracle_distance ||
+                        large_g.result.distance != query.oracle_distance)
+                    {
+                        throw std::runtime_error("tie plateau: grid result mismatch");
+                    }
+                    write_tie_plateau_row(out, "grid", id, grid_family_name(family),
+                                          size, qi, query, "node_id", node);
+                    write_tie_plateau_row(out, "grid", id, grid_family_name(family),
+                                          size, qi, query, "larger_g", large_g);
+                }
+                std::cerr << "tie plateau " << id << ": " << queries.size()
+                          << " queries\n";
+            }
+        }
+        return 0;
+    }
+
+    int run_tie_plateau_real(const std::string &output, const Graph &graph,
+                             const LandmarkData &landmarks, std::uint32_t k,
+                             std::uint32_t per_band, std::uint64_t seed)
+    {
+        if (graph.n == 0 || landmarks.n != graph.n)
+        {
+            throw std::runtime_error("tie plateau: graph/landmark size mismatch");
+        }
+        std::ofstream out(output);
+        if (!out) throw std::runtime_error("cannot open plateau output: " + output);
+        write_tie_plateau_header(out);
+
+        std::vector<Vertex> component(graph.n);
+        for (Vertex v = 0; v < graph.n; ++v) component[v] = v;
+        const std::uint64_t query_seed = seed ^ fnv1a64("query_roadNet-CA");
+        const std::vector<Query> queries =
+                select_queries(graph, component, per_band, query_seed);
+        if (queries.empty()) throw std::runtime_error("tie plateau: no queries");
+
+        ALTHeuristic alt(landmarks, k);
+        SearchScratch node_scratch(graph.n, TieBreak::NodeId);
+        SearchScratch g_scratch(graph.n, TieBreak::LargerG);
+        const std::string id = "roadNet-CA";
+
+        for (std::size_t qi = 0; qi < queries.size(); ++qi)
+        {
+            const Query &query = queries[qi];
+            SearchOptions node_options;
+            node_options.tie = TieBreak::NodeId;
+            SearchOptions g_options;
+            g_options.tie = TieBreak::LargerG;
+
+            const TimedSearch node =
+                    timed_search(graph, query.source, query.target, &alt,
+                                 node_options, node_scratch);
+            const TimedSearch large_g =
+                    timed_search(graph, query.source, query.target, &alt,
+                                 g_options, g_scratch);
+            if (node.result.status != SearchStatus::Ok ||
+                large_g.result.status != SearchStatus::Ok ||
+                node.result.distance != query.oracle_distance ||
+                large_g.result.distance != query.oracle_distance)
+            {
+                throw std::runtime_error("tie plateau: road result mismatch");
+            }
+            write_tie_plateau_row(out, "real", id, "road", 0, qi, query,
+                                  "node_id", node);
+            write_tie_plateau_row(out, "real", id, "road", 0, qi, query,
+                                  "larger_g", large_g);
+            if ((qi + 1) % 5 == 0)
+            {
+                std::cerr << "tie plateau real: " << (qi + 1) << "/"
+                          << queries.size() << "\n";
+            }
+        }
+        return 0;
+    }
+
 } // namespace astar

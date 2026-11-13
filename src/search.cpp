@@ -106,6 +106,9 @@ namespace astar
         result.counters.heap_peak = heap.size();
 
         bool found = false;
+        Distance last_f = 0;
+        std::uint64_t current_plateau = 0;
+        bool have_f = false;
         while (!heap.empty())
         {
             const HeapEntry entry = heap.pop();
@@ -129,6 +132,31 @@ namespace astar
             closed[u] = stamp;
             closed_distance[u] = entry.g;
             ++result.counters.expanded;
+
+            // Count equal-f plateaus among settled vertices.  This is where
+            // the tie-break rule can change the search order.
+            if (!have_f)
+            {
+                have_f = true;
+                current_plateau = 1;
+                result.counters.f_plateau_runs = 1;
+                result.counters.max_f_plateau = 1;
+            }
+            else if (entry.f == last_f)
+            {
+                ++result.counters.equal_f_expanded;
+                ++current_plateau;
+                if (current_plateau > result.counters.max_f_plateau)
+                {
+                    result.counters.max_f_plateau = current_plateau;
+                }
+            }
+            else
+            {
+                ++result.counters.f_plateau_runs;
+                current_plateau = 1;
+            }
+            last_f = entry.f;
 
             if (u == target)
             {

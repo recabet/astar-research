@@ -113,6 +113,8 @@ namespace
                 "                [--reopen 1]\n"
                 "  weighted-real --graph G --landmarks L --out FILE [--main-k 8]\n"
                 "                 [--reopen 1] [--per-band 10] [--reps 5]\n"
+                "  tie-plateau-grid --out FILE [--sizes ...] [--families ...]\n"
+                "  tie-plateau-real --graph G --landmarks L --out FILE [--main-k 8]\n"
                 "  omp-scaling --graph FILE --landmarks FILE [--out-batch FILE]\n"
                 "                  [--out-tasks FILE] [--sizes 512] [--threads ...]\n";
     }
@@ -286,6 +288,63 @@ int main(int argc, char** argv)
             ensure_parent_directory(out);
             return run_weighted_real(out, graph, landmarks, k, per_band, reps,
                                      seed, allow_reopen);
+        }
+
+        if (command == "tie-plateau-grid")
+        {
+            const auto options = parse_options(argc, argv, 2);
+            const std::string out =
+                    get_option(options, "--out", "results/tie_plateau_grid.csv");
+            const std::uint32_t per_band =
+                    parse_u32(get_option(options, "--per-band", "5"), "--per-band");
+            const std::uint64_t seed =
+                    parse_u64(get_option(options, "--seed", "20261030"), "--seed");
+            std::vector<std::uint32_t> sizes;
+            for (const std::string &token: split(
+                     get_option(options, "--sizes", "128,256,512,1024"), ','))
+            {
+                sizes.push_back(parse_u32(token, "--sizes"));
+            }
+            std::vector<GridFamily> families;
+            for (const std::string &token: split(
+                     get_option(options, "--families",
+                                "open,random,clustered,rooms,maze"),
+                     ','))
+            {
+                families.push_back(parse_grid_family(token));
+            }
+            ensure_parent_directory(out);
+            return run_tie_plateau_grid(out, sizes, families, per_band, seed);
+        }
+
+        if (command == "tie-plateau-real")
+        {
+            const auto options = parse_options(argc, argv, 2);
+            const std::string graph_path = get_option(options, "--graph", "");
+            const std::string landmark_path =
+                    get_option(options, "--landmarks", "");
+            if (graph_path.empty() || landmark_path.empty())
+            {
+                throw std::runtime_error(
+                    "tie-plateau-real needs --graph and --landmarks");
+            }
+            const std::string out =
+                    get_option(options, "--out", "results/tie_plateau_real.csv");
+            const std::uint32_t k =
+                    parse_u32(get_option(options, "--main-k", "8"), "--main-k");
+            const std::uint32_t per_band =
+                    parse_u32(get_option(options, "--per-band", "10"), "--per-band");
+            const std::uint64_t seed =
+                    parse_u64(get_option(options, "--seed", "20261030"), "--seed");
+            const Graph graph = load_graph_binary(graph_path);
+            const LandmarkData landmarks = load_landmarks_binary(landmark_path);
+            if (landmarks.n != graph.n)
+            {
+                throw std::runtime_error(
+                    "landmark count/table does not match graph");
+            }
+            ensure_parent_directory(out);
+            return run_tie_plateau_real(out, graph, landmarks, k, per_band, seed);
         }
 
         if (command == "omp-scaling")

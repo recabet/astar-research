@@ -53,4 +53,17 @@ namespace astar
                           std::uint32_t reps = 5,
                           std::uint64_t seed = 20261030,
                           bool allow_reopen = true);
+
+    // Tie-break mechanism study: run A* with node-id and larger-g tie-breaks
+    // and record the equal-f plateau structure of the settled vertices.
+    int run_tie_plateau_grid(const std::string &output,
+                             const std::vector<std::uint32_t> &sizes,
+                             const std::vector<GridFamily> &families,
+                             std::uint32_t per_band = 5,
+                             std::uint64_t seed = 20261030);
+
+    int run_tie_plateau_real(const std::string &output, const Graph &graph,
+                             const LandmarkData &landmarks, std::uint32_t k = 8,
+                             std::uint32_t per_band = 10,
+                             std::uint64_t seed = 20261030);
 } // namespace astar

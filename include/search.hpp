@@ -36,6 +36,13 @@ namespace astar
         std::uint64_t heuristic_calls = 0;
         // Maximum number of entries held by the heap at any time.
         std::uint64_t heap_peak = 0;
+        // Settled vertices whose f value equals the previous settled f value.
+        // These are the vertices where the tie-break rule can change the order.
+        std::uint64_t equal_f_expanded = 0;
+        // Number of maximal runs of equal f among settled vertices.
+        std::uint64_t f_plateau_runs = 0;
+        // Longest such run.
+        std::uint64_t max_f_plateau = 0;
     };
 
     struct SearchOptions {
