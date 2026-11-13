@@ -85,6 +85,114 @@ namespace astar
         return data;
     }
 
+    LandmarkData select_landmarks_weighted(const Graph &graph, std::uint32_t k,
+                                           std::uint64_t seed)
+    {
+        if (graph.n == 0) throw std::runtime_error("cannot select landmarks of an empty graph");
+        if (k == 0) throw std::runtime_error("number of landmarks must be positive");
+        k = std::min<std::uint32_t>(k, graph.n);
+
+        LandmarkData data;
+        data.n = graph.n;
+        data.k = k;
+        data.ids.resize(k);
+        data.distances.resize(static_cast<std::size_t>(k) * graph.n);
+
+        const auto first = static_cast<Vertex>(seed % graph.n);
+        std::vector<Distance> min_distance(graph.n, kInfinity);
+        Vertex current = first;
+
+        for (std::uint32_t l = 0; l < k; ++l)
+        {
+            const std::vector<Distance> d = dijkstra_distances(graph, current);
+            data.ids[l] = current;
+            for (std::size_t v = 0; v < graph.n; ++v)
+            {
+                if (d[v] == kInfinity)
+                {
+                    data.distances[static_cast<std::size_t>(l) * graph.n + v] =
+                            kInfiniteIndex;
+                }
+                else if (d[v] > static_cast<Distance>(kInfiniteIndex - 1))
+                {
+                    throw std::runtime_error("weighted landmark distance exceeds 32-bit range");
+                }
+                else
+                {
+                    data.distances[static_cast<std::size_t>(l) * graph.n + v] =
+                            static_cast<std::uint32_t>(d[v]);
+                }
+            }
+
+            if (l == 0)
+            {
+                min_distance = d;
+            }
+            else
+            {
+                for (std::size_t v = 0; v < graph.n; ++v)
+                {
+                    if (d[v] < min_distance[v]) min_distance[v] = d[v];
+                }
+            }
+
+            if (l + 1 == k) break;
+
+            Vertex next = kInvalidVertex;
+            Distance best_distance = 0;
+            for (Vertex v = 0; v < graph.n; ++v)
+            {
+                if (min_distance[v] != kInfinity && min_distance[v] > best_distance)
+                {
+                    best_distance = min_distance[v];
+                    next = v;
+                }
+            }
+            if (next == kInvalidVertex) next = data.ids[l];
+            current = next;
+        }
+
+        return data;
+    }
+
+    void save_coordinates_binary(const Coordinates &data, const std::string &path)
+    {
+        std::ofstream out(path, std::ios::binary);
+        if (!out) throw std::runtime_error("cannot open coordinate output: " + path);
+        constexpr char magic[8] = {'A', 'S', 'T', 'A', 'R', 'X', 'Y', '0'};
+        out.write(magic, sizeof(magic));
+        out.write(reinterpret_cast<const char *>(&data.n), sizeof(data.n));
+        out.write(reinterpret_cast<const char *>(data.x.data()),
+                  static_cast<std::streamsize>(data.x.size() * sizeof(double)));
+        out.write(reinterpret_cast<const char *>(data.y.data()),
+                  static_cast<std::streamsize>(data.y.size() * sizeof(double)));
+        if (!out) throw std::runtime_error("failed while writing coordinates: " + path);
+    }
+
+    Coordinates load_coordinates_binary(const std::string &path)
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (!in) throw std::runtime_error("cannot open coordinate input: " + path);
+        char magic[8];
+        constexpr char expected[8] = {'A', 'S', 'T', 'A', 'R', 'X', 'Y', '0'};
+        in.read(magic, sizeof(magic));
+        if (!in || !std::equal(magic, magic + 8, expected))
+        {
+            throw std::runtime_error("bad coordinate file magic: " + path);
+        }
+        Coordinates data;
+        in.read(reinterpret_cast<char *>(&data.n), sizeof(data.n));
+        if (!in || data.n == 0) throw std::runtime_error("bad coordinate header: " + path);
+        data.x.resize(data.n);
+        data.y.resize(data.n);
+        in.read(reinterpret_cast<char *>(data.x.data()),
+                static_cast<std::streamsize>(data.x.size() * sizeof(double)));
+        in.read(reinterpret_cast<char *>(data.y.data()),
+                static_cast<std::streamsize>(data.y.size() * sizeof(double)));
+        if (!in) throw std::runtime_error("truncated coordinate file: " + path);
+        return data;
+    }
+
     void save_landmarks_binary(const LandmarkData &data, const std::string &path)
     {
         std::ofstream out(path, std::ios::binary);

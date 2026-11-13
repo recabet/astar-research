@@ -205,6 +205,97 @@ namespace astar
         return queries;
     }
 
+    std::vector<Query> select_weighted_queries(const Graph &graph,
+                                               const std::vector<Vertex> &component,
+                                               std::uint32_t per_band,
+                                               std::uint64_t seed)
+    {
+        std::vector<Query> queries;
+        if (component.size() < 2 || per_band == 0) return queries;
+
+        std::mt19937_64 rng(seed);
+        std::uniform_int_distribution<std::size_t> pick_source(0, component.size() - 1);
+        std::uint32_t selected[3] = {0, 0, 0};
+        std::uint32_t attempts = 0;
+        const std::uint32_t max_attempts = per_band * 12 + 20;
+
+        while ((selected[0] < per_band || selected[1] < per_band || selected[2] < per_band) &&
+               attempts++ < max_attempts)
+        {
+            const Vertex source = component[pick_source(rng)];
+            const std::vector<Distance> dist = dijkstra_distances(graph, source);
+
+            Distance dmax = 0;
+            for (Vertex v: component)
+            {
+                if (dist[v] != kInfinity && dist[v] > dmax) dmax = dist[v];
+            }
+            if (dmax < 2) continue;
+
+            for (int b = 0; b < 3; ++b)
+            {
+                if (selected[b] >= per_band) continue;
+                const Distance low = std::max<Distance>(
+                    1, static_cast<Distance>(std::floor(kBands[b].low * static_cast<double>(dmax))));
+                const Distance high = std::min<Distance>(
+                    dmax, static_cast<Distance>(std::ceil(kBands[b].high * static_cast<double>(dmax))));
+                const Distance center = (low + high) / 2;
+
+                Vertex chosen = kInvalidVertex;
+                std::uint64_t count = 0;
+                for (Vertex v: component)
+                {
+                    if (v == source || dist[v] == kInfinity) continue;
+                    if (dist[v] < low || dist[v] > high) continue;
+                    ++count;
+                    if (std::uniform_int_distribution<std::uint64_t>(0, count - 1)(rng) == 0)
+                    {
+                        chosen = v;
+                    }
+                }
+                if (chosen == kInvalidVertex)
+                {
+                    Distance best_delta = kInfinity;
+                    for (Vertex v: component)
+                    {
+                        if (v == source || dist[v] == kInfinity) continue;
+                        const Distance delta = dist[v] > center ? dist[v] - center : center - dist[v];
+                        if (delta < best_delta)
+                        {
+                            best_delta = delta;
+                            chosen = v;
+                        }
+                    }
+                }
+                if (chosen == kInvalidVertex) continue;
+                if (dist[chosen] > static_cast<Distance>(kInfiniteIndex - 1))
+                {
+                    throw std::runtime_error("weighted query distance exceeds 32-bit range");
+                }
+
+                Query query;
+                query.source = source;
+                query.target = chosen;
+                query.band = kBands[b].name;
+                query.oracle_distance = static_cast<std::uint32_t>(dist[chosen]);
+                queries.push_back(std::move(query));
+                ++selected[b];
+                if (selected[0] >= per_band && selected[1] >= per_band &&
+                    selected[2] >= per_band)
+                {
+                    break;
+                }
+            }
+        }
+
+        if (queries.size() != static_cast<std::size_t>(per_band) * 3)
+        {
+            std::cerr << "warning: selected " << queries.size() << " weighted queries, expected "
+                    << per_band * 3 << "\n";
+        }
+        return queries;
+    }
+
     int run_grid_benchmark(const BenchmarkOptions &options,
                            const std::vector<std::uint32_t> &sizes,
                            const std::vector<GridFamily> &families,
@@ -435,6 +526,119 @@ namespace astar
             {
                 std::cerr << "  real queries: " << (qi + 1) << "/" << queries.size()
                         << "\n";
+            }
+        }
+        return 0;
+    }
+
+    int run_weighted_road_benchmark(const BenchmarkOptions &options,
+                                    const Graph &graph,
+                                    const LandmarkData &landmarks,
+                                    const Coordinates &coordinates,
+                                    std::uint32_t main_k)
+    {
+        if (graph.n == 0 || landmarks.n != graph.n || coordinates.n != graph.n)
+        {
+            throw std::runtime_error("weighted road: graph/landmark/coordinate size mismatch");
+        }
+        std::ofstream out(options.output);
+        if (!out) throw std::runtime_error("cannot open weighted-road output: " + options.output);
+        out << csv_header();
+
+        std::vector<Vertex> component(graph.n);
+        for (Vertex v = 0; v < graph.n; ++v) component[v] = v;
+        const std::uint64_t query_seed =
+                options.seed ^ fnv1a64("query_roadNet-NY-weighted");
+        std::cerr << "selecting weighted road queries...\n";
+        const std::vector<Query> queries =
+                select_weighted_queries(graph, component, options.per_band, query_seed);
+        if (queries.empty()) throw std::runtime_error("no weighted road queries selected");
+
+        EuclideanHeuristic euclidean(coordinates);
+        ALTHeuristic alt1(landmarks, 1);
+        ALTHeuristic alt4(landmarks, 4);
+        ALTHeuristic alt8(landmarks, main_k);
+        ALTHeuristic alt16(landmarks, 16);
+
+        SearchScratch dijkstra_scratch(graph.n, TieBreak::LargerG);
+        SearchScratch euclidean_scratch(graph.n, TieBreak::LargerG);
+        SearchScratch alt1_scratch(graph.n, TieBreak::LargerG);
+        SearchScratch alt4_scratch(graph.n, TieBreak::LargerG);
+        SearchScratch alt8_scratch(graph.n, TieBreak::LargerG);
+        SearchScratch alt16_scratch(graph.n, TieBreak::LargerG);
+        SearchScratch alt8_nodeid_scratch(graph.n, TieBreak::NodeId);
+
+        struct Variant {
+            std::string name;
+            std::string algorithm;
+            std::string tie;
+            std::uint32_t k;
+            Heuristic* heuristic;
+            TieBreak tie_break;
+            SearchScratch* scratch;
+        };
+        std::vector<Variant> variants = {
+            {"dijkstra", "dijkstra", "larger_g", 0, nullptr, TieBreak::LargerG,
+             &dijkstra_scratch},
+            {"astar_euclidean", "astar", "larger_g", 0, &euclidean, TieBreak::LargerG,
+             &euclidean_scratch},
+            {"astar_alt1", "astar", "larger_g", 1, &alt1, TieBreak::LargerG,
+             &alt1_scratch},
+            {"astar_alt4", "astar", "larger_g", 4, &alt4, TieBreak::LargerG,
+             &alt4_scratch},
+            {"astar_alt8", "astar", "larger_g", main_k, &alt8, TieBreak::LargerG,
+             &alt8_scratch},
+            {"astar_alt16", "astar", "larger_g", 16, &alt16, TieBreak::LargerG,
+             &alt16_scratch},
+            {"astar_alt8_node_id", "astar", "node_id", main_k, &alt8, TieBreak::NodeId,
+             &alt8_nodeid_scratch},
+        };
+
+        for (const Variant &variant: variants)
+        {
+            (void) run_timed(graph, queries[0].source, queries[0].target,
+                             variant.heuristic, variant.tie_break, options.time_limit_ns,
+                             *variant.scratch);
+        }
+
+        const std::string experiment = "weighted_road";
+        const std::string graph_id = "roadNet-NY";
+        const std::string family = "road_weighted";
+        for (std::size_t qi = 0; qi < queries.size(); ++qi)
+        {
+            const Query &query = queries[qi];
+            for (std::uint32_t rep = 1; rep <= options.reps; ++rep)
+            {
+                const std::size_t rotation = (rep - 1) % variants.size();
+                for (std::size_t v = 0; v < variants.size(); ++v)
+                {
+                    const Variant &variant = variants[(v + rotation) % variants.size()];
+                    const TimedResult timed =
+                            run_timed(graph, query.source, query.target,
+                                      variant.heuristic, variant.tie_break,
+                                      options.time_limit_ns, *variant.scratch);
+                    const bool correct =
+                            result_matches_oracle(timed.result, query.oracle_distance);
+                    write_record(out, experiment, graph_id, family, 0, 0, 0.0, graph,
+                                 options.seed, query_seed, static_cast<std::uint32_t>(qi),
+                                 query, variant.name, variant.algorithm, variant.tie,
+                                 variant.k, rep, timed.time_ns, timed.result, correct);
+                    if (timed.result.status == SearchStatus::Timeout)
+                    {
+                        std::cerr << "  timeout on weighted pair " << qi << " variant "
+                                  << variant.name << "\n";
+                    }
+                    else if (!correct)
+                    {
+                        throw std::runtime_error("distance mismatch on weighted pair " +
+                                                 std::to_string(qi));
+                    }
+                }
+            }
+            if ((qi + 1) % 5 == 0)
+            {
+                std::cerr << "  weighted road queries: " << (qi + 1) << "/"
+                          << queries.size() << "\n";
             }
         }
         return 0;

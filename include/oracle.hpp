@@ -18,6 +18,10 @@ namespace astar
     // validate_path: O(path_length * max_degree).
     std::vector<std::uint32_t> bfs_distances(const Graph &graph, Vertex source);
 
+    // Exact weighted distances from one source.  Positive integer weights.
+    // Used for weighted ALTs, weighted query selection, and correctness checks.
+    std::vector<Distance> dijkstra_distances(const Graph &graph, Vertex source);
+
     std::uint32_t bfs_distance(const Graph &graph, Vertex source, Vertex target);
 
     std::vector<std::vector<Distance> > floyd_warshall(const Graph &graph);

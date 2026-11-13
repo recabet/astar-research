@@ -95,6 +95,8 @@ namespace
                 "astar_research commands:\n"
                 "  preprocess-real --input FILE --out-graph FILE [--out-landmarks FILE]\n"
                 "                  [--landmarks K] [--seed N]\n"
+                "  preprocess-dimacs --gr FILE --co FILE --out-graph FILE\n"
+                "                  --out-landmarks FILE --out-coords FILE [--landmarks K]\n"
                 "  graph-info --graph FILE\n"
                 "  benchmark-grid --out FILE [--sizes 128,256,512,1024]\n"
                 "                  [--families open,random,clustered,rooms,maze]\n"
@@ -104,6 +106,8 @@ namespace
                 "  benchmark-real --graph FILE --landmarks FILE --out FILE\n"
                 "                  [--reps 5] [--per-band 10] [--seed N]\n"
                 "                  [--main-k 8] [--time-limit-s 30]\n"
+                "  benchmark-weighted-road --graph FILE --landmarks FILE --coords FILE\n"
+                "                  --out FILE [--reps 5] [--per-band 10] [--main-k 8]\n"
                 "  validate-real --graph FILE --landmarks FILE [--samples 30]\n"
                 "                  [--main-k 8] [--seed N]\n"
                 "  diagnose-grid --out FILE [--sizes ...] [--families ...]\n"
@@ -148,6 +152,21 @@ int main(int argc, char** argv)
                 parse_u64(get_option(options, "--landmarks", "16"), "--landmarks"));
             config.seed = parse_u64(get_option(options, "--seed", "20261030"), "--seed");
             return preprocess_real_graph(config);
+        }
+
+        if (command == "preprocess-dimacs")
+        {
+            const auto options = parse_options(argc, argv, 2);
+            DimacsPreprocessOptions config;
+            config.input_gr = get_option(options, "--gr", "");
+            config.input_co = get_option(options, "--co", "");
+            config.output_graph = get_option(options, "--out-graph", "");
+            config.output_landmarks = get_option(options, "--out-landmarks", "");
+            config.output_coords = get_option(options, "--out-coords", "");
+            config.landmarks = static_cast<std::uint32_t>(
+                parse_u64(get_option(options, "--landmarks", "16"), "--landmarks"));
+            config.seed = parse_u64(get_option(options, "--seed", "20261030"), "--seed");
+            return preprocess_dimacs_graph(config);
         }
 
         if (command == "diagnose-grid")
@@ -488,6 +507,46 @@ int main(int argc, char** argv)
             }
             ensure_parent_directory(bench.output);
             return run_real_benchmark(bench, graph, landmarks, main_k);
+        }
+
+        if (command == "benchmark-weighted-road")
+        {
+            const auto options = parse_options(argc, argv, 2);
+            const std::string graph_path = get_option(options, "--graph", "");
+            const std::string landmark_path = get_option(options, "--landmarks", "");
+            const std::string coord_path = get_option(options, "--coords", "");
+            if (graph_path.empty() || landmark_path.empty() || coord_path.empty())
+            {
+                throw std::runtime_error(
+                    "benchmark-weighted-road needs --graph, --landmarks and --coords");
+            }
+            BenchmarkOptions bench;
+            bench.output = get_option(options, "--out", "results/weighted_road.csv");
+            bench.reps = parse_u32(get_option(options, "--reps", "5"), "--reps");
+            bench.per_band = parse_u32(get_option(options, "--per-band", "10"), "--per-band");
+            bench.seed = parse_u64(get_option(options, "--seed", "20261030"), "--seed");
+            bench.time_limit_ns = static_cast<std::uint64_t>(
+                parse_double(get_option(options, "--time-limit-s", "30"), "--time-limit-s") *
+                1e9);
+            const std::uint32_t main_k =
+                    parse_u32(get_option(options, "--main-k", "8"), "--main-k");
+
+            const Graph graph = load_graph_binary(graph_path);
+            const LandmarkData landmarks = load_landmarks_binary(landmark_path);
+            const Coordinates coordinates = load_coordinates_binary(coord_path);
+            if (landmarks.n != graph.n || coordinates.n != graph.n)
+            {
+                throw std::runtime_error(
+                    "graph, landmark and coordinate sizes do not match");
+            }
+            if (landmarks.k < 16)
+            {
+                throw std::runtime_error(
+                    "benchmark-weighted-road expects at least 16 landmarks");
+            }
+            ensure_parent_directory(bench.output);
+            return run_weighted_road_benchmark(bench, graph, landmarks, coordinates,
+                                               main_k);
         }
 
         if (command == "validate-real")

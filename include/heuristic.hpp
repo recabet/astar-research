@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -80,6 +81,48 @@ namespace astar
 
     LandmarkData select_landmarks(const Graph &graph, std::uint32_t k,
                                   std::uint64_t seed);
+
+    // Weighted variant: the landmark tables are exact weighted distances.  Use
+    // this for graphs whose edge weights are metres or travel times.
+    LandmarkData select_landmarks_weighted(const Graph &graph, std::uint32_t k,
+                                           std::uint64_t seed);
+
+    // Planar coordinates in a conservative local metric projection.  The
+    // Euclidean distance in this projection is a lower bound on road length.
+    struct Coordinates {
+        std::uint32_t n = 0;
+        std::vector<double> x;
+        std::vector<double> y;
+    };
+
+    void save_coordinates_binary(const Coordinates &data, const std::string &path);
+
+    Coordinates load_coordinates_binary(const std::string &path);
+
+    class EuclideanHeuristic final : public Heuristic {
+    public:
+        explicit EuclideanHeuristic(const Coordinates &data) : data_(data)
+        {
+        }
+
+        void prepare(Vertex target) override
+        {
+            target_ = target;
+        }
+
+        [[nodiscard]] Distance estimate(Vertex vertex) const override
+        {
+            const double dx = data_.x[vertex] - data_.x[target_];
+            const double dy = data_.y[vertex] - data_.y[target_];
+            return static_cast<Distance>(std::floor(std::sqrt(dx * dx + dy * dy)));
+        }
+
+        [[nodiscard]] std::string name() const override { return "euclidean"; }
+
+    private:
+        const Coordinates &data_;
+        Vertex target_ = kInvalidVertex;
+    };
 
     void save_landmarks_binary(const LandmarkData &data, const std::string &path);
 

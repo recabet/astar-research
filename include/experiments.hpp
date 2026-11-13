@@ -34,6 +34,13 @@ namespace astar
                                       const std::vector<Vertex> &component,
                                       std::uint32_t per_band, std::uint64_t seed);
 
+    // Same band design, but bands are fractions of the weighted eccentricity and
+    // oracle_distance is the weighted shortest-path distance.
+    std::vector<Query> select_weighted_queries(const Graph &graph,
+                                               const std::vector<Vertex> &component,
+                                               std::uint32_t per_band,
+                                               std::uint64_t seed);
+
     int run_grid_benchmark(const BenchmarkOptions &options,
                            const std::vector<std::uint32_t> &sizes,
                            const std::vector<GridFamily> &families,
@@ -43,6 +50,13 @@ namespace astar
     int run_real_benchmark(const BenchmarkOptions &options, const Graph &graph,
                            const LandmarkData &landmarks,
                            std::uint32_t main_k = 8);
+
+    // Weighted road benchmark: Dijkstra, Euclidean A*, and weighted ALT.
+    int run_weighted_road_benchmark(const BenchmarkOptions &options,
+                                    const Graph &graph,
+                                    const LandmarkData &landmarks,
+                                    const Coordinates &coordinates,
+                                    std::uint32_t main_k = 8);
 
     int run_validation(const Graph &graph, const LandmarkData* landmarks,
                        std::uint32_t main_k, std::uint32_t sample_queries,

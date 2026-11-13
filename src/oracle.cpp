@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <numeric>
 #include <queue>
 #include <stdexcept>
@@ -29,6 +30,37 @@ namespace astar
                 {
                     dist[v] = next_distance;
                     queue.push_back(v);
+                }
+            }
+        }
+        return dist;
+    }
+
+    std::vector<Distance> dijkstra_distances(const Graph &graph, Vertex source)
+    {
+        std::vector<Distance> dist(graph.n, kInfinity);
+        if (source >= graph.n) return dist;
+
+        using Item = std::pair<Distance, Vertex>;
+        std::priority_queue<Item, std::vector<Item>, std::greater<Item> > queue;
+        dist[source] = 0;
+        queue.emplace(0, source);
+
+        while (!queue.empty())
+        {
+            const auto [du, u] = queue.top();
+            queue.pop();
+            if (du != dist[u]) continue;
+            for (std::uint64_t e = graph.offsets[u]; e < graph.offsets[u + 1]; ++e)
+            {
+                const Vertex v = graph.targets[e];
+                const Weight w = graph.weights[e];
+                if (w == kInfiniteWeight || du > kInfinity - static_cast<Distance>(w)) continue;
+                const Distance candidate = du + static_cast<Distance>(w);
+                if (candidate < dist[v])
+                {
+                    dist[v] = candidate;
+                    queue.emplace(candidate, v);
                 }
             }
         }
